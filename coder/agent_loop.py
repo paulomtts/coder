@@ -12,6 +12,37 @@ from coder.tools.ls import tool_ls
 
 _ALL_TOOLS = [tool_read, tool_write, tool_edit, tool_bash, tool_grep, tool_find, tool_ls]
 
+from coder.llm_call import run_llm_call
+
+
+async def run_agent_loop(session) -> None:
+    """Run the agent's main loop: call LLM, stream response."""
+    # Check compaction before LLM call
+    await session.check_compaction()
+
+    # Inject any steering messages
+    while not session.steering_queue.empty():
+        try:
+            msg = session.steering_queue.get_nowait()
+            await session.cq.append(
+                ContextItem(content={"role": "user", "content": msg})
+            )
+        except asyncio.QueueEmpty:
+            break
+
+    # Call LLM
+    result = await run_llm_call(
+        toolkit=session.toolkit,
+        cq=session.cq,
+        pool=session.pool,
+        allowed_tools=session.allowed_tools,
+    )
+
+    # Append assistant response to context
+    await session.cq.append(
+        ContextItem(content={"role": "assistant", "content": result})
+    )
+
 def register_all_tools() -> list:
     for t in _ALL_TOOLS:
         if ToolRegistry._registry.get(t.__name__) is None:
