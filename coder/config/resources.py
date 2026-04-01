@@ -1,7 +1,8 @@
-# coder/resources.py
+# coder/config/resources.py
 import os
 
 CONTEXT_FILES = ["AGENTS.md", "CLAUDE.md"]
+
 
 def discover_project_context(cwd: str) -> str:
     fragments: list[str] = []
@@ -32,12 +33,14 @@ def discover_project_context(cwd: str) -> str:
                     fragments.append(f"# {path}\n{content}")
     return "\n\n".join(fragments)
 
+
 def load_system_prompt_override(cwd: str) -> str | None:
     path = os.path.join(cwd, ".coder", "SYSTEM.md")
     if os.path.isfile(path):
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     return None
+
 
 def load_append_prompt(cwd: str) -> str | None:
     path = os.path.join(cwd, ".coder", "APPEND_SYSTEM.md")

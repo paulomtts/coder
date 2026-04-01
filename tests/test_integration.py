@@ -3,13 +3,15 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from pygents import ContextItem
 
-from coder.session import Session
+from coder.agent.session import Session
 
 
 @pytest.mark.asyncio
 async def test_session_start(tmp_path):
     session = Session()
-    with patch.dict("os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}):
+    with patch.dict(
+        "os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}
+    ):
         await session.start(cwd=str(tmp_path))
     assert session.agent is not None
     assert session.agent.name == "coder"
@@ -21,7 +23,9 @@ async def test_session_start(tmp_path):
 async def test_session_with_project_context(tmp_path):
     (tmp_path / "AGENTS.md").write_text("Be helpful and concise.")
     session = Session()
-    with patch.dict("os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}):
+    with patch.dict(
+        "os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}
+    ):
         await session.start(cwd=str(tmp_path))
     ctx = session.pool.get("project-context")
     assert "Be helpful" in str(ctx.content)
@@ -30,12 +34,17 @@ async def test_session_with_project_context(tmp_path):
 @pytest.mark.asyncio
 async def test_session_role_switching(tmp_path):
     session = Session()
-    with patch.dict("os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}):
+    with patch.dict(
+        "os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}
+    ):
         await session.start(cwd=str(tmp_path))
     session.toolkit.chat = AsyncMock(return_value=MagicMock(content="Branch summary"))
     await session.switch_role("scout")
     role = session.pool.get("active-role")
-    assert "scout" in str(role.content).lower() or "investigate" in str(role.content).lower()
+    assert (
+        "scout" in str(role.content).lower()
+        or "investigate" in str(role.content).lower()
+    )
     assert session.allowed_tools is not None
     assert "tool_write" not in session.allowed_tools
 
@@ -43,12 +52,18 @@ async def test_session_role_switching(tmp_path):
 @pytest.mark.asyncio
 async def test_session_compaction(tmp_path):
     session = Session()
-    with patch.dict("os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}):
+    with patch.dict(
+        "os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}
+    ):
         await session.start(cwd=str(tmp_path))
-    session.toolkit.chat = AsyncMock(return_value=MagicMock(content="## Goal\nTest goal"))
+    session.toolkit.chat = AsyncMock(
+        return_value=MagicMock(content="## Goal\nTest goal")
+    )
     for i in range(40):
         await session.cq.append(
-            ContextItem(content={"role": "user", "content": f"Message {i} " + "x" * 5000})
+            ContextItem(
+                content={"role": "user", "content": f"Message {i} " + "x" * 5000}
+            )
         )
     session.config.compaction_threshold = 0.01
     await session.check_compaction()

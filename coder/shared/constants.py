@@ -1,4 +1,4 @@
-# coder/constants.py
+# coder/shared/constants.py
 
 MAX_LINES = 2000
 MAX_BYTES = 256 * 1024  # 256KB

@@ -1,5 +1,5 @@
 import pytest
-from coder.personas import PERSONAS, get_persona, get_allowed_tools
+from coder.agent.personas.definitions import PERSONAS, get_persona, get_allowed_tools
 
 
 def test_all_personas_exist():
@@ -13,7 +13,10 @@ def test_get_persona():
     persona = get_persona("scout")
     assert persona.name == "scout"
     assert persona.system_prompt
-    assert "scout" in persona.system_prompt.lower() or "investigate" in persona.system_prompt.lower()
+    assert (
+        "scout" in persona.system_prompt.lower()
+        or "investigate" in persona.system_prompt.lower()
+    )
 
 
 def test_get_persona_not_found():

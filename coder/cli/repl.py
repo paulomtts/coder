@@ -1,9 +1,9 @@
 import asyncio
 import sys
 
-from pygents import ContextItem, Turn
-from coder.prompts import is_slash_command, list_slash_commands, load_slash_command
-from coder.session import Session
+from pygents import ContextItem
+from coder.cli.commands import is_slash_command, list_slash_commands, load_slash_command
+from coder.agent.session import Session
 
 
 async def read_user_input() -> str | None:
@@ -47,7 +47,9 @@ async def handle_input(session: Session, user_input: str) -> str | None:
                 await session.switch_role(role_name)
                 print(f"Switched to {role_name} role.")
             except KeyError:
-                print(f"Unknown role: {role_name}. Available: scout, planner, worker, reviewer")
+                print(
+                    f"Unknown role: {role_name}. Available: scout, planner, worker, reviewer"
+                )
         return None
     if stripped in ("/quit", "/exit"):
         return None
@@ -56,7 +58,9 @@ async def handle_input(session: Session, user_input: str) -> str | None:
         if expanded is None:
             commands = list_slash_commands(cwd=session.config.cwd)
             if commands:
-                print(f"Unknown command. Available: {', '.join('/' + c for c in commands)}")
+                print(
+                    f"Unknown command. Available: {', '.join('/' + c for c in commands)}"
+                )
             else:
                 print(f"Unknown command: {cmd_word}")
             return None
@@ -81,8 +85,11 @@ async def main(cwd: str | None = None) -> None:
             message = await handle_input(session, user_input)
             if message is None:
                 continue
-            await session.cq.append(ContextItem(content={"role": "user", "content": message}))
-            from coder.agent_loop import run_agent_loop
+            await session.cq.append(
+                ContextItem(content={"role": "user", "content": message})
+            )
+            from coder.agent.loop import run_agent_loop
+
             await run_agent_loop(session)
             print()
         except KeyboardInterrupt:

@@ -1,6 +1,6 @@
-import os
 import pytest
-from coder.tools.find import tool_find
+from coder.agent.tools.find import tool_find
+
 
 @pytest.mark.asyncio
 async def test_find_by_glob(tmp_path):
@@ -12,6 +12,7 @@ async def test_find_by_glob(tmp_path):
     assert "bar.py" in result
     assert "baz.txt" not in result
 
+
 @pytest.mark.asyncio
 async def test_find_recursive(tmp_path):
     sub = tmp_path / "sub"
@@ -19,6 +20,7 @@ async def test_find_recursive(tmp_path):
     (sub / "deep.py").write_text("")
     result = await tool_find(pattern="**/*.py", path=str(tmp_path))
     assert "deep.py" in result
+
 
 @pytest.mark.asyncio
 async def test_find_no_matches(tmp_path):

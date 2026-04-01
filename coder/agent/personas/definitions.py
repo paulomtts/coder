@@ -9,8 +9,20 @@ class Persona:
     allowed_tools: frozenset[str]
 
 
-READ_ONLY_TOOLS = frozenset({"tool_read", "tool_bash", "tool_grep", "tool_find", "tool_ls"})
-ALL_TOOLS = frozenset({"tool_read", "tool_write", "tool_edit", "tool_bash", "tool_grep", "tool_find", "tool_ls"})
+READ_ONLY_TOOLS = frozenset(
+    {"tool_read", "tool_bash", "tool_grep", "tool_find", "tool_ls"}
+)
+ALL_TOOLS = frozenset(
+    {
+        "tool_read",
+        "tool_write",
+        "tool_edit",
+        "tool_bash",
+        "tool_grep",
+        "tool_find",
+        "tool_ls",
+    }
+)
 
 SCOUT_PROMPT = """You are a scout. Quickly investigate a codebase and return structured findings that another agent can use without re-reading everything.
 
@@ -115,10 +127,30 @@ Overall assessment in 2-3 sentences.
 Be specific with file paths and line numbers."""
 
 PERSONAS: dict[str, Persona] = {
-    "scout": Persona(name="scout", system_prompt=SCOUT_PROMPT, model_hint="haiku", allowed_tools=READ_ONLY_TOOLS),
-    "planner": Persona(name="planner", system_prompt=PLANNER_PROMPT, model_hint="sonnet", allowed_tools=READ_ONLY_TOOLS),
-    "worker": Persona(name="worker", system_prompt=WORKER_PROMPT, model_hint="sonnet", allowed_tools=ALL_TOOLS),
-    "reviewer": Persona(name="reviewer", system_prompt=REVIEWER_PROMPT, model_hint="sonnet", allowed_tools=READ_ONLY_TOOLS),
+    "scout": Persona(
+        name="scout",
+        system_prompt=SCOUT_PROMPT,
+        model_hint="haiku",
+        allowed_tools=READ_ONLY_TOOLS,
+    ),
+    "planner": Persona(
+        name="planner",
+        system_prompt=PLANNER_PROMPT,
+        model_hint="sonnet",
+        allowed_tools=READ_ONLY_TOOLS,
+    ),
+    "worker": Persona(
+        name="worker",
+        system_prompt=WORKER_PROMPT,
+        model_hint="sonnet",
+        allowed_tools=ALL_TOOLS,
+    ),
+    "reviewer": Persona(
+        name="reviewer",
+        system_prompt=REVIEWER_PROMPT,
+        model_hint="sonnet",
+        allowed_tools=READ_ONLY_TOOLS,
+    ),
 }
 
 
