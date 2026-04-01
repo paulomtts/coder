@@ -97,9 +97,21 @@ TOOL_NAME_MAP = {
     "bash": "tool_bash", "grep": "tool_grep", "find": "tool_find", "ls": "tool_ls",
 }
 
-import json
+from pydantic import BaseModel, Field
 
 from py_ai_toolkit import PyAIToolkit
+
+
+class ToolCallRequest(BaseModel):
+    """A single tool call requested by the LLM."""
+    name: str = Field(description="Tool name: read, write, edit, bash, grep, find, or ls")
+    arguments: dict[str, Any] = Field(description="Arguments to pass to the tool")
+
+
+class AgentResponse(BaseModel):
+    """The LLM's response: either a text reply, or one or more tool calls to execute."""
+    text: str | None = Field(None, description="Text response to the user. Set when no tools need to be called.")
+    tool_calls: list[ToolCallRequest] | None = Field(None, description="Tools to call. Set when you need to use tools before responding.")
 
 
 async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> str:
@@ -120,21 +132,37 @@ async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> str:
         return f"Error executing {tool_name}: {e}"
 
 
+def _build_tool_descriptions(allowed_tools: set[str] | None) -> str:
+    """Build a human-readable tool reference for the system prompt."""
+    tools = allowed_tools or LLM_VISIBLE_TOOLS
+    descriptions = {
+        "tool_read": "read(path, offset?, limit?) — Read file contents. Supports text and images. Output truncated to 2000 lines / 256KB. Use offset/limit for large files.",
+        "tool_write": "write(path, content) — Write content to a file. Creates parent dirs. Use only for new files or complete rewrites.",
+        "tool_edit": "edit(path, edits=[{old_text, new_text}]) — Exact text replacement. Each old_text must be unique in the file. All matches are against the original file.",
+        "tool_bash": "bash(command, timeout?) — Execute a bash command. Returns stdout+stderr. Output truncated to 2000 lines / 256KB.",
+        "tool_grep": "grep(pattern, path?, glob?, ignore_case?, literal?, context?, limit?) — Search file contents with ripgrep. Respects .gitignore.",
+        "tool_find": "find(pattern, path?, limit?) — Find files by glob pattern with ripgrep. Respects .gitignore.",
+        "tool_ls": "ls(path?, limit?) — List directory contents. Sorted alphabetically, '/' suffix for dirs.",
+    }
+    return "\n".join(f"- {descriptions[t]}" for t in sorted(tools) if t in descriptions)
+
+
 async def run_llm_call(
     toolkit: PyAIToolkit,
     cq: ContextQueue,
     pool: ContextPool,
     allowed_tools: set[str] | None = None,
 ) -> None:
-    """Run the LLM call loop with tool execution.
+    """Run the LLM call loop with tool execution via asend().
 
-    Streams text to stdout. When the LLM requests tool calls, executes them
-    and sends results back in a loop until the LLM produces a final text
-    response (no more tool calls).
+    Uses py-ai-toolkit's asend() with a structured AgentResponse model.
+    When the LLM requests tool calls, executes them and loops.
+    When the LLM returns text, prints it and stops.
 
-    Appends all messages (assistant + tool results) to cq as it goes.
+    Appends all messages (assistant + tool results) to cq.
     """
     system_prompt = build_system_prompt(pool, allowed_tools)
+    tool_ref = _build_tool_descriptions(allowed_tools)
 
     compaction_summary = None
     try:
@@ -143,116 +171,82 @@ async def run_llm_call(
     except KeyError:
         pass
 
-    # Build initial messages with system prompt
-    api_messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
+    # Build the prompt with conversation history
+    history_parts: list[str] = []
 
     if compaction_summary:
-        api_messages.append({
-            "role": "system",
-            "content": f"[Context from previous conversation]\n{compaction_summary}",
-        })
+        history_parts.append(f"[Previous context]\n{compaction_summary}")
 
-    # Add conversation history
     for item in cq.items:
         if isinstance(item.content, dict):
-            api_messages.append(item.content)
+            role = item.content.get("role", "unknown")
+            content = item.content.get("content", "")
+            if role == "tool":
+                history_parts.append(f"[tool result]: {content}")
+            elif content:
+                history_parts.append(f"[{role}]: {content}")
 
-    # Build tool schemas
-    tool_schemas = build_tool_schemas(allowed_tools)
+    conversation = "\n\n".join(history_parts)
 
-    # Get the raw OpenAI client and model
-    client = toolkit.llm_client.openai_client
-    model = toolkit.llm_client._model
+    iteration = 0
+    max_iterations = 20  # safety limit
 
-    while True:
-        # Call LLM with streaming
-        create_kwargs: dict[str, Any] = {
-            "model": model,
-            "messages": api_messages,
-            "stream": True,
-        }
-        if tool_schemas:
-            create_kwargs["tools"] = tool_schemas
-            create_kwargs["tool_choice"] = "auto"
+    while iteration < max_iterations:
+        iteration += 1
 
-        stream = await client.chat.completions.create(**create_kwargs)
+        prompt = (
+            "{{ system_prompt }}\n\n"
+            "## Available Tools\n{{ tool_ref }}\n\n"
+            "## Conversation\n{{ conversation }}"
+        )
 
-        # Accumulate the streamed response
-        full_text = ""
-        tool_calls_by_index: dict[int, dict[str, Any]] = {}
+        response = await toolkit.asend(
+            response_model=AgentResponse,
+            template=prompt,
+            system_prompt=system_prompt,
+            tool_ref=tool_ref,
+            conversation=conversation,
+        )
 
-        async for chunk in stream:
-            delta = chunk.choices[0].delta if chunk.choices else None
-            if not delta:
-                continue
+        agent_response = response.content
 
-            # Stream text content to stdout
-            if delta.content:
-                sys.stdout.write(delta.content)
-                sys.stdout.flush()
-                full_text += delta.content
+        # If the LLM returned text, we're done
+        if agent_response.text and not agent_response.tool_calls:
+            print(agent_response.text)
+            await cq.append(ContextItem(content={"role": "assistant", "content": agent_response.text}))
+            return
 
-            # Accumulate tool call deltas
-            if delta.tool_calls:
-                for tc_delta in delta.tool_calls:
-                    idx = tc_delta.index
-                    if idx not in tool_calls_by_index:
-                        tool_calls_by_index[idx] = {
-                            "id": "",
-                            "type": "function",
-                            "function": {"name": "", "arguments": ""},
-                        }
-                    tc = tool_calls_by_index[idx]
-                    if tc_delta.id:
-                        tc["id"] = tc_delta.id
-                    if tc_delta.function:
-                        if tc_delta.function.name:
-                            tc["function"]["name"] += tc_delta.function.name
-                        if tc_delta.function.arguments:
-                            tc["function"]["arguments"] += tc_delta.function.arguments
+        # Execute tool calls
+        if agent_response.tool_calls:
+            tool_results: list[str] = []
+            for tc in agent_response.tool_calls:
+                print(f"  [{tc.name}] ", end="", flush=True)
+                result = await execute_tool(tc.name, tc.arguments)
 
-        if full_text:
-            print()  # newline after streamed text
+                display = result[:200] + "..." if len(result) > 200 else result
+                print(display.replace("\n", " "))
 
-        # Build the assistant message
-        assistant_msg: dict[str, Any] = {"role": "assistant"}
-        if full_text:
-            assistant_msg["content"] = full_text
-        if tool_calls_by_index:
-            assistant_msg["tool_calls"] = [
-                tool_calls_by_index[i] for i in sorted(tool_calls_by_index)
-            ]
+                tool_results.append(f"[tool result for {tc.name}]: {result}")
 
-        # Append assistant message to context and API messages
-        await cq.append(ContextItem(content=assistant_msg))
-        api_messages.append(assistant_msg)
+                # Append to cq
+                await cq.append(ContextItem(content={
+                    "role": "assistant",
+                    "content": f"Called {tc.name}({tc.arguments})",
+                }))
+                await cq.append(ContextItem(content={
+                    "role": "tool",
+                    "content": result,
+                }))
 
-        # If no tool calls, we're done
-        if not tool_calls_by_index:
-            break
+            # Append tool results to conversation for next iteration
+            conversation += "\n\n" + "\n\n".join(tool_results)
 
-        # Execute each tool call and append results
-        for idx in sorted(tool_calls_by_index):
-            tc = tool_calls_by_index[idx]
-            fn_name = tc["function"]["name"]
-            try:
-                fn_args = json.loads(tc["function"]["arguments"])
-            except json.JSONDecodeError:
-                fn_args = {}
+        # If both text and tool_calls, print text and continue
+        if agent_response.text:
+            print(agent_response.text)
+            conversation += f"\n\n[assistant]: {agent_response.text}"
 
-            print(f"  [{fn_name}] ", end="", flush=True)
-            result = await execute_tool(fn_name, fn_args)
-
-            # Truncate display of tool result
-            display = result[:200] + "..." if len(result) > 200 else result
-            print(display.replace("\n", " "))
-
-            tool_result_msg = {
-                "role": "tool",
-                "tool_call_id": tc["id"],
-                "content": result,
-            }
-            await cq.append(ContextItem(content=tool_result_msg))
-            api_messages.append(tool_result_msg)
-
-        # Loop back to call LLM again with tool results
+        # If neither text nor tool_calls, something went wrong
+        if not agent_response.text and not agent_response.tool_calls:
+            print("[No response from LLM]")
+            return
