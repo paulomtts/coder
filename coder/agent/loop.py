@@ -8,10 +8,8 @@ from coder.agent.llm.call import run_llm_call
 
 async def run_agent_loop(session) -> None:
     """Run the agent's main loop: call LLM, execute tools, repeat until done."""
-    # Check compaction before LLM call
     await session.check_compaction()
 
-    # Inject any steering messages
     while not session.steering_queue.empty():
         try:
             msg = session.steering_queue.get_nowait()
@@ -21,7 +19,6 @@ async def run_agent_loop(session) -> None:
         except asyncio.QueueEmpty:
             break
 
-    # Run the LLM call loop (handles tool calling internally)
     await run_llm_call(
         toolkit=session.toolkit,
         cq=session.cq,

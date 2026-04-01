@@ -4,12 +4,12 @@ from dataclasses import dataclass, field
 from py_ai_toolkit import LLMConfig, PyAIToolkit
 from pygents import Agent, ContextItem, ContextPool, ContextQueue
 
-from coder.agent_loop import create_agent, register_all_tools
+from coder.agent.loop import create_agent
 from coder.agent.compaction import (
     BRANCH_SUMMARY_PREAMBLE, BRANCH_SUMMARY_PROMPT,
     estimate_tokens, run_compaction, should_compact,
 )
-from coder.config import SessionConfig, load_config
+from coder.config.loader import SessionConfig, load_config
 from coder.agent.personas.definitions import get_persona
 from coder.config.resources import discover_project_context, load_append_prompt, load_system_prompt_override
 

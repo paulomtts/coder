@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from pygents import ContextItem
 
-from coder.session import Session
+from coder.agent.session import Session
 
 
 @pytest.mark.asyncio

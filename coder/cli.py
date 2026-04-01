@@ -3,7 +3,7 @@ import sys
 
 from pygents import ContextItem, Turn
 from coder.prompts import is_slash_command, list_slash_commands, load_slash_command
-from coder.session import Session
+from coder.agent.session import Session
 
 
 async def read_user_input() -> str | None:
@@ -82,7 +82,7 @@ async def main(cwd: str | None = None) -> None:
             if message is None:
                 continue
             await session.cq.append(ContextItem(content={"role": "user", "content": message}))
-            from coder.agent_loop import run_agent_loop
+            from coder.agent.loop import run_agent_loop
             await run_agent_loop(session)
             print()
         except KeyboardInterrupt:

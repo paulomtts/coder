@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 from pygents import ContextPool, ContextQueue
-from coder.agent_loop import create_agent, register_all_tools
+from coder.agent.loop import create_agent, register_all_tools
 
 @pytest.mark.asyncio
 async def test_register_all_tools():
