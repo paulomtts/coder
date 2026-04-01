@@ -1,5 +1,5 @@
 import pytest
-from coder.tools.edit import tool_edit
+from coder.agent.tools.edit import tool_edit
 
 @pytest.mark.asyncio
 async def test_edit_single_replacement(tmp_path):

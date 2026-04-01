@@ -1,5 +1,5 @@
 import pytest
-from coder.tools.bash import tool_bash
+from coder.agent.tools.bash import tool_bash
 
 @pytest.mark.asyncio
 async def test_bash_simple_command():

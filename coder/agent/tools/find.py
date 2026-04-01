@@ -1,6 +1,6 @@
 import asyncio
 from pygents import tool
-from coder.constants import FIND_MAX_RESULTS, MAX_BYTES
+from coder.shared.constants import FIND_MAX_RESULTS, MAX_BYTES
 
 @tool()
 async def tool_find(pattern: str, path: str | None = None, limit: int | None = None) -> str:

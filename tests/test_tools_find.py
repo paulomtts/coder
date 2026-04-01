@@ -1,6 +1,6 @@
 import os
 import pytest
-from coder.tools.find import tool_find
+from coder.agent.tools.find import tool_find
 
 @pytest.mark.asyncio
 async def test_find_by_glob(tmp_path):

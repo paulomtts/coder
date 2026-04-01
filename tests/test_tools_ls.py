@@ -1,6 +1,6 @@
 import os
 import pytest
-from coder.tools.ls import tool_ls
+from coder.agent.tools.ls import tool_ls
 
 @pytest.mark.asyncio
 async def test_ls_lists_files(tmp_path):

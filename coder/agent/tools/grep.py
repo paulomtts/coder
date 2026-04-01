@@ -1,7 +1,7 @@
 # coder/tools/grep.py
 import asyncio
 from pygents import tool
-from coder.constants import GREP_MAX_LINE_LENGTH, GREP_MAX_MATCHES, MAX_BYTES
+from coder.shared.constants import GREP_MAX_LINE_LENGTH, GREP_MAX_MATCHES, MAX_BYTES
 
 @tool()
 async def tool_grep(pattern: str, path: str | None = None, glob: str | None = None, ignore_case: bool = False, literal: bool = False, context: int | None = None, limit: int | None = None) -> str:

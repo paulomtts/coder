@@ -1,6 +1,6 @@
 import os
 from pygents import tool
-from coder.constants import LS_MAX_ENTRIES, MAX_BYTES
+from coder.shared.constants import LS_MAX_ENTRIES, MAX_BYTES
 
 @tool()
 async def tool_ls(path: str | None = None, limit: int | None = None) -> str:

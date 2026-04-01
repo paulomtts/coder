@@ -1,6 +1,6 @@
 import os
 import pytest
-from coder.tools.grep import tool_grep
+from coder.agent.tools.grep import tool_grep
 
 @pytest.mark.asyncio
 async def test_grep_finds_pattern(tmp_path):

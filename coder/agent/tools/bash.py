@@ -2,7 +2,7 @@
 import asyncio
 import tempfile
 from pygents import tool
-from coder.constants import MAX_BYTES, MAX_LINES
+from coder.shared.constants import MAX_BYTES, MAX_LINES
 
 
 def _truncate_output(output: str) -> tuple[str, str | None]:

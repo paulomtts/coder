@@ -1,7 +1,7 @@
 import base64
 import os
 from pygents import tool
-from coder.constants import MAX_BYTES, MAX_LINES
+from coder.shared.constants import MAX_BYTES, MAX_LINES
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
