@@ -17,18 +17,14 @@ async def read_user_input() -> str | None:
         return None
 
 
+BUILTIN_COMMANDS = {"/help", "/role", "/quit", "/exit"}
+
+
 async def handle_input(session: Session, user_input: str) -> str | None:
-    if is_slash_command(user_input):
-        expanded = load_slash_command(user_input, cwd=session.config.cwd)
-        if expanded is None:
-            commands = list_slash_commands(cwd=session.config.cwd)
-            if commands:
-                print(f"Unknown command. Available: {', '.join('/' + c for c in commands)}")
-            else:
-                print("No slash commands found in .coder/prompts/")
-            return None
-        return expanded
-    if user_input.strip() == "/help":
+    stripped = user_input.strip()
+    cmd_word = stripped.split(None, 1)[0] if stripped else ""
+
+    if stripped == "/help":
         commands = list_slash_commands(cwd=session.config.cwd)
         print("Built-in commands:")
         print("  /help          - Show this help")
@@ -40,7 +36,7 @@ async def handle_input(session: Session, user_input: str) -> str | None:
             for cmd in commands:
                 print(f"  /{cmd}")
         return None
-    if user_input.strip().startswith("/role"):
+    if cmd_word == "/role":
         parts = user_input.strip().split(None, 1)
         if len(parts) == 1:
             await session.clear_role()
@@ -53,8 +49,18 @@ async def handle_input(session: Session, user_input: str) -> str | None:
             except KeyError:
                 print(f"Unknown role: {role_name}. Available: scout, planner, worker, reviewer")
         return None
-    if user_input.strip() in ("/quit", "/exit"):
+    if stripped in ("/quit", "/exit"):
         return None
+    if is_slash_command(user_input):
+        expanded = load_slash_command(user_input, cwd=session.config.cwd)
+        if expanded is None:
+            commands = list_slash_commands(cwd=session.config.cwd)
+            if commands:
+                print(f"Unknown command. Available: {', '.join('/' + c for c in commands)}")
+            else:
+                print(f"Unknown command: {cmd_word}")
+            return None
+        return expanded
     return user_input
 
 
