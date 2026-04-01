@@ -92,7 +92,7 @@ async def main(cwd: str | None = None) -> None:
             from coder.agent.loop import run_agent_loop
 
             await run_agent_loop(session)
-            print()
+            console.system("")
         except KeyboardInterrupt:
             console.system("\n\nInterrupted. Type /quit to exit.")
             continue
