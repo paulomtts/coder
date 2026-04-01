@@ -1,12 +1,2 @@
-# coder/constants.py
-
-MAX_LINES = 2000
-MAX_BYTES = 256 * 1024  # 256KB
-GREP_MAX_MATCHES = 100
-FIND_MAX_RESULTS = 1000
-LS_MAX_ENTRIES = 500
-GREP_MAX_LINE_LENGTH = 500
-DEFAULT_HISTORY_LIMIT = 50
-DEFAULT_COMPACTION_THRESHOLD = 0.8
-DEFAULT_KEEP_RECENT_TOKENS = 20000
-DEFAULT_TURN_TIMEOUT = 120
+# Backwards-compatible re-export — all constants now live in coder.shared.constants
+from coder.shared.constants import *  # noqa: F401,F403
