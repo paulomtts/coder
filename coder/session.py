@@ -10,7 +10,7 @@ from coder.agent.compaction import (
     estimate_tokens, run_compaction, should_compact,
 )
 from coder.config import SessionConfig, load_config
-from coder.personas import PERSONAS, get_persona
+from coder.agent.personas.definitions import get_persona
 from coder.config.resources import discover_project_context, load_append_prompt, load_system_prompt_override
 
 DEFAULT_BASE_PROMPT = """You are an expert coding assistant operating inside coder, a coding agent harness.

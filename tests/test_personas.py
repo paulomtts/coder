@@ -1,5 +1,5 @@
 import pytest
-from coder.personas import PERSONAS, get_persona, get_allowed_tools
+from coder.agent.personas.definitions import PERSONAS, get_persona, get_allowed_tools
 
 
 def test_all_personas_exist():
