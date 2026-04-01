@@ -96,3 +96,46 @@ TOOL_NAME_MAP = {
     "read": "tool_read", "write": "tool_write", "edit": "tool_edit",
     "bash": "tool_bash", "grep": "tool_grep", "find": "tool_find", "ls": "tool_ls",
 }
+
+from py_ai_toolkit import PyAIToolkit
+
+
+async def run_llm_call(
+    toolkit: PyAIToolkit,
+    cq: ContextQueue,
+    pool: ContextPool,
+    allowed_tools: set[str] | None = None,
+) -> str:
+    """Call the LLM with current context. Streams text to stdout.
+    Returns the full response text."""
+    system_prompt = build_system_prompt(pool, allowed_tools)
+
+    compaction_summary = None
+    try:
+        summary_item = pool.get("compaction-summary")
+        compaction_summary = str(summary_item.content)
+    except KeyError:
+        pass
+    messages = build_messages(cq, compaction_summary=compaction_summary)
+
+    # Format messages for the template
+    messages_text = ""
+    for msg in messages:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        messages_text += f"[{role}]: {content}\n"
+
+    full_response = ""
+    async for chunk in toolkit.stream(
+        template="{{ system_prompt }}\n\n{{ messages_text }}",
+        system_prompt=system_prompt,
+        messages_text=messages_text,
+    ):
+        text = chunk.content
+        if text:
+            sys.stdout.write(text)
+            sys.stdout.flush()
+            full_response += text
+
+    print()  # newline after streaming
+    return full_response

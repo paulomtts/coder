@@ -82,9 +82,8 @@ async def main(cwd: str | None = None) -> None:
             if message is None:
                 continue
             await session.cq.append(ContextItem(content={"role": "user", "content": message}))
-            await session.check_compaction()
-            # TODO: Wire to llm_call streaming (Task 17)
-            print("[Agent would process message here]")
+            from coder.agent_loop import run_agent_loop
+            await run_agent_loop(session)
             print()
         except KeyboardInterrupt:
             print("\n\nInterrupted. Type /quit to exit.")
