@@ -54,15 +54,12 @@ async def handle_input(session: Session, user_input: str) -> str | None:
                     f"Unknown role: {role_name}. Available: scout, planner, worker, reviewer"
                 )
         return None
-    if stripped == "/quiet":
+    if stripped in ("/quiet", "/verbose"):
         old = console.verbosity
-        console.set_verbosity("quiet")
-        console.system(f"Verbosity: {old} -> quiet. Tool traces hidden.")
-        return None
-    if stripped == "/verbose":
-        old = console.verbosity
-        console.set_verbosity("normal")
-        console.system(f"Verbosity: {old} -> normal. Tool traces visible.")
+        new = "quiet" if old == "normal" else "normal"
+        console.set_verbosity(new)
+        label = "Tool traces hidden." if new == "quiet" else "Tool traces visible."
+        console.system(f"Verbosity: {old} -> {new}. {label}")
         return None
     if stripped in ("/quit", "/exit"):
         return None
