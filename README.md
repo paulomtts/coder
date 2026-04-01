@@ -1,17 +1,23 @@
 # Coder
 
-Coder is a small AI coding assistant harness. It helps with common repository tasks such as reading files, running commands, making precise edits, and creating new files.
-
-This project includes the agent runtime, tool integrations, prompt/session handling, and supporting utilities that let the assistant work inside a local codebase.
+A Python coding agent harness fully based on [badlogic/pi-mono's coding-agent](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent), built with [pygents](https://paulomtts.github.io/pygents/).
 
 ## What it can do
 
-- inspect the repository
-- execute shell commands
-- edit files safely with targeted replacements
-- manage prompts, sessions, and compaction
-- support coding workflows driven by an LLM
+- Inspect the repository
+- Execute shell commands
+- Edit files safely with targeted replacements
+- Manage prompts, sessions, and compaction
+- Support coding workflows driven by an LLM
 
-## Purpose
+## Running
 
-The goal of this repo is to provide the core infrastructure for an interactive coding agent that can help develop software directly from the command line.
+```bash
+uv run python main.py
+```
+
+## Testing
+
+```bash
+uv run pytest
+```
