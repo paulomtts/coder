@@ -64,6 +64,12 @@ class CoderConsole:
         else:
             self.theme = _detect_theme()
         self._console = RichConsole()
+        self.verbosity: str = "normal"
+        self._tool_names: list[str] = []
+
+    def set_verbosity(self, level: str) -> None:
+        """Set verbosity level: 'quiet', 'normal', or 'verbose'."""
+        self.verbosity = level
 
     def response(self, markdown_text: str) -> None:
         """Render LLM response as markdown inside a bordered panel."""
@@ -78,6 +84,9 @@ class CoderConsole:
 
     def tool_trace(self, tool_name: str, result_preview: str) -> None:
         """Render a dimmed tool call inside a compact panel."""
+        if self.verbosity == "quiet":
+            self._tool_names.append(tool_name)
+            return
         label = Text(tool_name, style=self.theme.tool_name)
         content = Text(result_preview, style=self.theme.tool_result)
         combined = Text.assemble("[", label, "] ", content)
@@ -88,6 +97,16 @@ class CoderConsole:
             padding=(0, 1),
         )
         self._console.print(panel, style="dim")
+
+    def flush_tool_summary(self) -> None:
+        """Print a summary of buffered tool names and clear the buffer."""
+        if not self._tool_names:
+            return
+        names = ", ".join(self._tool_names)
+        count = len(self._tool_names)
+        summary = Text(f"[{count} tools: {names}]", style=self.theme.tool_result)
+        self._console.print(summary)
+        self._tool_names = []
 
     def system(self, message: str) -> None:
         """System messages: welcome, help, role switches."""

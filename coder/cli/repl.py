@@ -18,7 +18,7 @@ async def read_user_input() -> str | None:
         return None
 
 
-BUILTIN_COMMANDS = {"/help", "/role", "/quit", "/exit"}
+BUILTIN_COMMANDS = {"/help", "/role", "/quit", "/exit", "/quiet", "/verbose"}
 
 
 async def handle_input(session: Session, user_input: str) -> str | None:
@@ -31,6 +31,8 @@ async def handle_input(session: Session, user_input: str) -> str | None:
         console.system("  /help          - Show this help")
         console.system("  /role <name>   - Switch persona (scout, planner, worker, reviewer)")
         console.system("  /role          - Clear active persona")
+        console.system("  /quiet         - Hide tool traces (show summary after each turn)")
+        console.system("  /verbose       - Show tool traces (default)")
         console.system("  /quit          - Exit")
         if commands:
             console.system("\nSlash commands:")
@@ -51,6 +53,14 @@ async def handle_input(session: Session, user_input: str) -> str | None:
                 console.error(
                     f"Unknown role: {role_name}. Available: scout, planner, worker, reviewer"
                 )
+        return None
+    if stripped == "/quiet":
+        console.set_verbosity("quiet")
+        console.system("Quiet mode: tool traces hidden.")
+        return None
+    if stripped == "/verbose":
+        console.set_verbosity("normal")
+        console.system("Verbose mode: tool traces visible.")
         return None
     if stripped in ("/quit", "/exit"):
         return None
@@ -92,6 +102,7 @@ async def main(cwd: str | None = None) -> None:
             from coder.agent.loop import run_agent_loop
 
             await run_agent_loop(session)
+            console.flush_tool_summary()
             console.system("")
         except KeyboardInterrupt:
             console.system("\n\nInterrupted. Type /quit to exit.")

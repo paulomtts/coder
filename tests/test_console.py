@@ -132,3 +132,63 @@ class TestThemeSwitching:
 
         c = CoderConsole(force_theme="light")
         assert c.theme == LIGHT_THEME
+
+
+class TestVerbosity:
+    def test_default_verbosity_is_normal(self):
+        from coder.shared.console import CoderConsole
+        c = CoderConsole(force_theme="dark")
+        assert c.verbosity == "normal"
+
+    def test_set_verbosity(self):
+        from coder.shared.console import CoderConsole
+        c = CoderConsole(force_theme="dark")
+        c.set_verbosity("quiet")
+        assert c.verbosity == "quiet"
+        c.set_verbosity("normal")
+        assert c.verbosity == "normal"
+
+    def test_quiet_mode_suppresses_tool_trace(self):
+        c, buf = _capture_console()
+        c.set_verbosity("quiet")
+        c.tool_trace("read", "/path/to/file")
+        output = buf.getvalue()
+        assert output == ""  # nothing printed
+
+    def test_quiet_mode_collects_tool_names(self):
+        c, buf = _capture_console()
+        c.set_verbosity("quiet")
+        c.tool_trace("read", "/path/to/file")
+        c.tool_trace("bash", "ls output")
+        assert c._tool_names == ["read", "bash"]
+
+    def test_flush_tool_summary_prints_summary(self):
+        c, buf = _capture_console()
+        c.set_verbosity("quiet")
+        c.tool_trace("read", "content")
+        c.tool_trace("bash", "output")
+        c.tool_trace("edit", "applied")
+        c.flush_tool_summary()
+        output = buf.getvalue()
+        assert "3 tools" in output
+        assert "read" in output
+        assert "bash" in output
+        assert "edit" in output
+
+    def test_flush_tool_summary_clears_buffer(self):
+        c, buf = _capture_console()
+        c.set_verbosity("quiet")
+        c.tool_trace("read", "content")
+        c.flush_tool_summary()
+        assert c._tool_names == []
+
+    def test_flush_tool_summary_noop_when_empty(self):
+        c, buf = _capture_console()
+        c.flush_tool_summary()
+        output = buf.getvalue()
+        assert output == ""
+
+    def test_normal_mode_does_not_collect_names(self):
+        c, buf = _capture_console()
+        c.tool_trace("read", "content")
+        assert c._tool_names == []
