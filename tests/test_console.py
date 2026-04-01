@@ -137,11 +137,13 @@ class TestThemeSwitching:
 class TestVerbosity:
     def test_default_verbosity_is_normal(self):
         from coder.shared.console import CoderConsole
+
         c = CoderConsole(force_theme="dark")
         assert c.verbosity == "normal"
 
     def test_set_verbosity(self):
         from coder.shared.console import CoderConsole
+
         c = CoderConsole(force_theme="dark")
         c.set_verbosity("quiet")
         assert c.verbosity == "quiet"

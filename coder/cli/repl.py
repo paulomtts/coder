@@ -29,9 +29,13 @@ async def handle_input(session: Session, user_input: str) -> str | None:
         commands = list_slash_commands(cwd=session.config.cwd)
         console.system("Built-in commands:")
         console.system("  /help          - Show this help")
-        console.system("  /role <name>   - Switch persona (scout, planner, worker, reviewer)")
+        console.system(
+            "  /role <name>   - Switch persona (scout, planner, worker, reviewer)"
+        )
         console.system("  /role          - Clear active persona")
-        console.system("  /quiet         - Hide tool traces (show summary after each turn)")
+        console.system(
+            "  /quiet         - Hide tool traces (show summary after each turn)"
+        )
         console.system("  /verbose       - Show tool traces (default)")
         console.system("  /quit          - Exit")
         if commands:
