@@ -1,6 +1,6 @@
 import pytest
 from pygents import ContextItem, ContextPool, ContextQueue
-from coder.llm_call import build_system_prompt, build_messages
+from coder.agent.llm.prompt import build_system_prompt, build_messages
 
 def test_build_system_prompt_basic():
     pool = ContextPool()

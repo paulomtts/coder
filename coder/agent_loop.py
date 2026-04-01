@@ -3,7 +3,7 @@ from pygents import Agent, ContextItem, ContextPool, ContextQueue
 from pygents.registry import ToolRegistry
 
 from coder.agent.tools import ALL_TOOLS
-from coder.llm_call import run_llm_call
+from coder.agent.llm.call import run_llm_call
 
 
 async def run_agent_loop(session) -> None:
