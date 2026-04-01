@@ -1,11 +1,11 @@
-# coder/config.py
+# coder/config/loader.py
 import os
 from dataclasses import dataclass, field
 
 import yaml
 from dotenv import load_dotenv
 
-from coder.constants import DEFAULT_COMPACTION_THRESHOLD, DEFAULT_HISTORY_LIMIT, DEFAULT_KEEP_RECENT_TOKENS
+from coder.shared.constants import DEFAULT_COMPACTION_THRESHOLD, DEFAULT_HISTORY_LIMIT, DEFAULT_KEEP_RECENT_TOKENS
 
 @dataclass
 class SessionConfig:
@@ -27,7 +27,6 @@ class SessionConfig:
 
 def load_config(cwd: str | None = None) -> SessionConfig:
     target_cwd = cwd or os.getcwd()
-    # Load .env from project root before reading env vars
     dotenv_path = os.path.join(target_cwd, ".env")
     load_dotenv(dotenv_path)
 

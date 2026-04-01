@@ -1,4 +1,4 @@
-# coder/resources.py
+# coder/config/resources.py
 import os
 
 CONTEXT_FILES = ["AGENTS.md", "CLAUDE.md"]

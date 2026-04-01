@@ -1,7 +1,7 @@
 # tests/test_resources.py
 import os
 import pytest
-from coder.resources import discover_project_context, load_system_prompt_override, load_append_prompt
+from coder.config.resources import discover_project_context, load_system_prompt_override, load_append_prompt
 
 def test_discover_agents_md(tmp_path):
     (tmp_path / "AGENTS.md").write_text("# Agent rules\nBe helpful.\n")

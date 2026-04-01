@@ -1,7 +1,7 @@
 # tests/test_config.py
 import os
 import pytest
-from coder.config import SessionConfig, load_config
+from coder.config.loader import SessionConfig, load_config
 
 def test_config_defaults():
     config = SessionConfig()

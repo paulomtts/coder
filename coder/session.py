@@ -11,7 +11,7 @@ from coder.compaction import (
 )
 from coder.config import SessionConfig, load_config
 from coder.personas import PERSONAS, get_persona
-from coder.resources import discover_project_context, load_append_prompt, load_system_prompt_override
+from coder.config.resources import discover_project_context, load_append_prompt, load_system_prompt_override
 
 DEFAULT_BASE_PROMPT = """You are an expert coding assistant operating inside coder, a coding agent harness.
 You help users by reading files, executing commands, editing code, and writing new files.
