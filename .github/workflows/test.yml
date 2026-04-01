@@ -8,6 +8,9 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     steps:
+      - name: Install ripgrep
+        run: sudo apt-get install -y ripgrep
+
       - uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v5
