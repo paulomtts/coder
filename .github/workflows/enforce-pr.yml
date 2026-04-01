@@ -11,8 +11,15 @@ jobs:
       - name: Check for associated pull request
         env:
           GH_TOKEN: ${{ github.token }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          # Get PRs that contain this commit
+          # Squash merges append "(#N)", merge commits start with "Merge pull request #N"
+          if echo "$COMMIT_MESSAGE" | grep -qE '(^Merge pull request #[0-9]+|\(#[0-9]+\))'; then
+            echo "Commit arrived via pull request (detected from commit message). OK."
+            exit 0
+          fi
+
+          # Fallback: query the API for associated PRs
           prs=$(gh api \
             -H "Accept: application/vnd.github+json" \
             "/repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
