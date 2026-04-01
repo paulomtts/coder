@@ -11,3 +11,9 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Claude Code worktrees
+.claude/worktrees/
+
+# Test artifacts
+test_output.txt
