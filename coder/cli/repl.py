@@ -55,12 +55,14 @@ async def handle_input(session: Session, user_input: str) -> str | None:
                 )
         return None
     if stripped == "/quiet":
+        old = console.verbosity
         console.set_verbosity("quiet")
-        console.system("Quiet mode: tool traces hidden.")
+        console.system(f"Verbosity: {old} -> quiet. Tool traces hidden.")
         return None
     if stripped == "/verbose":
+        old = console.verbosity
         console.set_verbosity("normal")
-        console.system("Verbose mode: tool traces visible.")
+        console.system(f"Verbosity: {old} -> normal. Tool traces visible.")
         return None
     if stripped in ("/quit", "/exit"):
         return None
