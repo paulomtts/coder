@@ -2,9 +2,11 @@ import os
 from typing import TypedDict
 from pygents import tool
 
+
 class EditEntry(TypedDict):
     old_text: str
     new_text: str
+
 
 @tool()
 async def tool_edit(path: str, edits: list[EditEntry]) -> str:

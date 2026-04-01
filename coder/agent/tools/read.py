@@ -5,6 +5,7 @@ from coder.shared.constants import MAX_BYTES, MAX_LINES
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
+
 def _truncate_output(content: str, max_lines: int, max_bytes: int) -> str:
     lines = content.split("\n")
     truncated = False
@@ -17,11 +18,16 @@ def _truncate_output(content: str, max_lines: int, max_bytes: int) -> str:
         result = encoded.decode("utf-8", errors="replace")
         truncated = True
     if truncated:
-        result += f"\n\n[Output truncated. Limits: {max_lines} lines, {max_bytes // 1024}KB]"
+        result += (
+            f"\n\n[Output truncated. Limits: {max_lines} lines, {max_bytes // 1024}KB]"
+        )
     return result
 
+
 @tool()
-async def tool_read(path: str, offset: int | None = None, limit: int | None = None) -> str:
+async def tool_read(
+    path: str, offset: int | None = None, limit: int | None = None
+) -> str:
     """Read the contents of a file. Supports text files and images."""
     try:
         if not os.path.exists(path):

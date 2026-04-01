@@ -1,4 +1,3 @@
-import sys
 from typing import Any
 from pygents import ContextItem, ContextPool, ContextQueue
 from pygents.registry import ToolRegistry
@@ -8,21 +7,36 @@ from py_ai_toolkit import PyAIToolkit
 from coder.agent.llm.prompt import build_system_prompt, LLM_VISIBLE_TOOLS
 
 TOOL_NAME_MAP = {
-    "read": "tool_read", "write": "tool_write", "edit": "tool_edit",
-    "bash": "tool_bash", "grep": "tool_grep", "find": "tool_find", "ls": "tool_ls",
+    "read": "tool_read",
+    "write": "tool_write",
+    "edit": "tool_edit",
+    "bash": "tool_bash",
+    "grep": "tool_grep",
+    "find": "tool_find",
+    "ls": "tool_ls",
 }
 
 
 class ToolCallRequest(BaseModel):
     """A single tool call requested by the LLM."""
-    name: str = Field(description="Tool name: read, write, edit, bash, grep, find, or ls")
+
+    name: str = Field(
+        description="Tool name: read, write, edit, bash, grep, find, or ls"
+    )
     arguments: dict[str, Any] = Field(description="Arguments to pass to the tool")
 
 
 class AgentResponse(BaseModel):
     """The LLM's response: either a text reply, or one or more tool calls to execute."""
-    text: str | None = Field(None, description="Text response to the user. Set when no tools need to be called.")
-    tool_calls: list[ToolCallRequest] | None = Field(None, description="Tools to call. Set when you need to use tools before responding.")
+
+    text: str | None = Field(
+        None,
+        description="Text response to the user. Set when no tools need to be called.",
+    )
+    tool_calls: list[ToolCallRequest] | None = Field(
+        None,
+        description="Tools to call. Set when you need to use tools before responding.",
+    )
 
 
 async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> str:
@@ -124,7 +138,11 @@ async def run_llm_call(
         # If the LLM returned text, we're done
         if agent_response.text and not agent_response.tool_calls:
             print(agent_response.text)
-            await cq.append(ContextItem(content={"role": "assistant", "content": agent_response.text}))
+            await cq.append(
+                ContextItem(
+                    content={"role": "assistant", "content": agent_response.text}
+                )
+            )
             return
 
         # Execute tool calls
@@ -140,14 +158,22 @@ async def run_llm_call(
                 tool_results.append(f"[tool result for {tc.name}]: {result}")
 
                 # Append to cq
-                await cq.append(ContextItem(content={
-                    "role": "assistant",
-                    "content": f"Called {tc.name}({tc.arguments})",
-                }))
-                await cq.append(ContextItem(content={
-                    "role": "tool",
-                    "content": result,
-                }))
+                await cq.append(
+                    ContextItem(
+                        content={
+                            "role": "assistant",
+                            "content": f"Called {tc.name}({tc.arguments})",
+                        }
+                    )
+                )
+                await cq.append(
+                    ContextItem(
+                        content={
+                            "role": "tool",
+                            "content": result,
+                        }
+                    )
+                )
 
             # Append tool results to conversation for next iteration
             conversation += "\n\n" + "\n\n".join(tool_results)

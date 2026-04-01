@@ -1,6 +1,7 @@
 import os
 from pygents import tool
 
+
 @tool()
 async def tool_write(path: str, content: str) -> str:
     """Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories."""

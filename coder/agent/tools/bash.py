@@ -7,7 +7,10 @@ from coder.shared.constants import MAX_BYTES, MAX_LINES
 
 def _truncate_output(output: str) -> tuple[str, str | None]:
     lines = output.split("\n")
-    needs_truncation = len(lines) > MAX_LINES or len(output.encode("utf-8", errors="replace")) > MAX_BYTES
+    needs_truncation = (
+        len(lines) > MAX_LINES
+        or len(output.encode("utf-8", errors="replace")) > MAX_BYTES
+    )
     if not needs_truncation:
         return output, None
     if len(lines) > MAX_LINES:
@@ -16,7 +19,9 @@ def _truncate_output(output: str) -> tuple[str, str | None]:
     if len(result.encode("utf-8", errors="replace")) > MAX_BYTES:
         encoded = result.encode("utf-8", errors="replace")[-MAX_BYTES:]
         result = encoded.decode("utf-8", errors="replace")
-    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, prefix="coder_bash_")
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False, prefix="coder_bash_"
+    )
     tmp.write(output)
     tmp.close()
     result = f"[Output truncated. Full output saved to {tmp.name}]\n\n{result}"
@@ -24,11 +29,16 @@ def _truncate_output(output: str) -> tuple[str, str | None]:
 
 
 @tool()
-async def tool_bash(command: str, timeout: int | None = None, cwd: str | None = None) -> str:
+async def tool_bash(
+    command: str, timeout: int | None = None, cwd: str | None = None
+) -> str:
     """Execute a bash command in the current working directory."""
     try:
         proc = await asyncio.create_subprocess_shell(
-            command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=cwd,
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)

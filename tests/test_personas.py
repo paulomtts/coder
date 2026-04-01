@@ -13,7 +13,10 @@ def test_get_persona():
     persona = get_persona("scout")
     assert persona.name == "scout"
     assert persona.system_prompt
-    assert "scout" in persona.system_prompt.lower() or "investigate" in persona.system_prompt.lower()
+    assert (
+        "scout" in persona.system_prompt.lower()
+        or "investigate" in persona.system_prompt.lower()
+    )
 
 
 def test_get_persona_not_found():

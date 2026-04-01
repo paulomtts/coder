@@ -1,1 +1,1 @@
-from coder.cli.repl import main
+from coder.cli.repl import main as main
