@@ -1,0 +1,16 @@
+[project]
+name = "coder"
+version = "0.1.0"
+description = "A Python coding agent inspired by pi-mono"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pygents>=0.6.7",
+    "py-ai-toolkit>=0.6.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=1.3.0",
+]
