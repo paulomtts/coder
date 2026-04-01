@@ -1,7 +1,10 @@
 # coder/config.py
 import os
 from dataclasses import dataclass, field
+
 import yaml
+from dotenv import load_dotenv
+
 from coder.constants import DEFAULT_COMPACTION_THRESHOLD, DEFAULT_HISTORY_LIMIT, DEFAULT_KEEP_RECENT_TOKENS
 
 @dataclass
@@ -23,8 +26,13 @@ class SessionConfig:
         )
 
 def load_config(cwd: str | None = None) -> SessionConfig:
+    target_cwd = cwd or os.getcwd()
+    # Load .env from project root before reading env vars
+    dotenv_path = os.path.join(target_cwd, ".env")
+    load_dotenv(dotenv_path)
+
     config = SessionConfig.from_env()
-    config.cwd = cwd or os.getcwd()
+    config.cwd = target_cwd
     config_path = os.path.join(config.cwd, ".coder", "config.yaml")
     if os.path.exists(config_path):
         with open(config_path, "r") as f:
