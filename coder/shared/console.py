@@ -81,14 +81,16 @@ class CoderConsole:
         )
         self._console.print(panel)
 
-    def tool_trace(self, tool_name: str, result_preview: str) -> None:
+    def tool_trace(self, tool_name: str, result_preview: str, context: str = "") -> None:
         """Render a dimmed tool call inside a compact panel."""
         if self.verbosity == "quiet":
             self._tool_names.append(tool_name)
             return
         label = Text(tool_name, style=self.theme.tool_name)
-        content = Text(result_preview, style=self.theme.tool_result)
-        combined = Text.assemble("[", label, "] ", content)
+        if context:
+            combined = Text.assemble("[", label, "] ", context, " -> ", Text(result_preview, style=self.theme.tool_result))
+        else:
+            combined = Text.assemble("[", label, "] ", Text(result_preview, style=self.theme.tool_result))
         panel = Panel(
             combined,
             border_style=self.theme.tool_border,

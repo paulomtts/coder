@@ -153,7 +153,8 @@ async def run_llm_call(
                 result = await execute_tool(tc.name, tc.arguments)
 
                 display = result[:200] + "..." if len(result) > 200 else result
-                console.tool_trace(tc.name, display.replace("\n", " "))
+                context = tc.arguments.get("command") or tc.arguments.get("path") or tc.arguments.get("pattern") or ""
+                console.tool_trace(tc.name, display.replace("\n", " "), context=context)
 
                 tool_results.append(f"[tool result for {tc.name}]: {result}")
 
