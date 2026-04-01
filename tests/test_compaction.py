@@ -1,7 +1,7 @@
 import pytest
 from pygents import ContextItem
-from coder.compaction import (
-    estimate_tokens, should_compact, split_messages,
+from coder.agent.compaction.summarizer import estimate_tokens, should_compact, split_messages
+from coder.agent.compaction.prompts import (
     SUMMARIZATION_PROMPT, SUMMARIZATION_SYSTEM_PROMPT, UPDATE_SUMMARIZATION_PROMPT,
 )
 

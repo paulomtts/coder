@@ -5,7 +5,7 @@ from py_ai_toolkit import LLMConfig, PyAIToolkit
 from pygents import Agent, ContextItem, ContextPool, ContextQueue
 
 from coder.agent_loop import create_agent, register_all_tools
-from coder.compaction import (
+from coder.agent.compaction import (
     BRANCH_SUMMARY_PREAMBLE, BRANCH_SUMMARY_PROMPT,
     estimate_tokens, run_compaction, should_compact,
 )
