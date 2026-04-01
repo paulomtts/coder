@@ -97,7 +97,27 @@ TOOL_NAME_MAP = {
     "bash": "tool_bash", "grep": "tool_grep", "find": "tool_find", "ls": "tool_ls",
 }
 
+import json
+
 from py_ai_toolkit import PyAIToolkit
+
+
+async def execute_tool(tool_name: str, arguments: dict[str, Any]) -> str:
+    """Execute a tool by its LLM-facing name and return the result string."""
+    pygents_name = TOOL_NAME_MAP.get(tool_name)
+    if not pygents_name:
+        return f"Error: unknown tool '{tool_name}'"
+
+    try:
+        tool_fn = ToolRegistry.get(pygents_name)
+    except Exception:
+        return f"Error: tool '{tool_name}' not registered"
+
+    try:
+        result = await tool_fn(**arguments)
+        return str(result)
+    except Exception as e:
+        return f"Error executing {tool_name}: {e}"
 
 
 async def run_llm_call(
@@ -105,9 +125,15 @@ async def run_llm_call(
     cq: ContextQueue,
     pool: ContextPool,
     allowed_tools: set[str] | None = None,
-) -> str:
-    """Call the LLM with current context. Streams text to stdout.
-    Returns the full response text."""
+) -> None:
+    """Run the LLM call loop with tool execution.
+
+    Streams text to stdout. When the LLM requests tool calls, executes them
+    and sends results back in a loop until the LLM produces a final text
+    response (no more tool calls).
+
+    Appends all messages (assistant + tool results) to cq as it goes.
+    """
     system_prompt = build_system_prompt(pool, allowed_tools)
 
     compaction_summary = None
@@ -116,26 +142,117 @@ async def run_llm_call(
         compaction_summary = str(summary_item.content)
     except KeyError:
         pass
-    messages = build_messages(cq, compaction_summary=compaction_summary)
 
-    # Format messages for the template
-    messages_text = ""
-    for msg in messages:
-        role = msg.get("role", "unknown")
-        content = msg.get("content", "")
-        messages_text += f"[{role}]: {content}\n"
+    # Build initial messages with system prompt
+    api_messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
 
-    full_response = ""
-    async for chunk in toolkit.stream(
-        template="{{ system_prompt }}\n\n{{ messages_text }}",
-        system_prompt=system_prompt,
-        messages_text=messages_text,
-    ):
-        text = chunk.content
-        if text:
-            sys.stdout.write(text)
-            sys.stdout.flush()
-            full_response += text
+    if compaction_summary:
+        api_messages.append({
+            "role": "system",
+            "content": f"[Context from previous conversation]\n{compaction_summary}",
+        })
 
-    print()  # newline after streaming
-    return full_response
+    # Add conversation history
+    for item in cq.items:
+        if isinstance(item.content, dict):
+            api_messages.append(item.content)
+
+    # Build tool schemas
+    tool_schemas = build_tool_schemas(allowed_tools)
+
+    # Get the raw OpenAI client and model
+    client = toolkit.llm_client.openai_client
+    model = toolkit.llm_client._model
+
+    while True:
+        # Call LLM with streaming
+        create_kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": api_messages,
+            "stream": True,
+        }
+        if tool_schemas:
+            create_kwargs["tools"] = tool_schemas
+            create_kwargs["tool_choice"] = "auto"
+
+        stream = await client.chat.completions.create(**create_kwargs)
+
+        # Accumulate the streamed response
+        full_text = ""
+        tool_calls_by_index: dict[int, dict[str, Any]] = {}
+
+        async for chunk in stream:
+            delta = chunk.choices[0].delta if chunk.choices else None
+            if not delta:
+                continue
+
+            # Stream text content to stdout
+            if delta.content:
+                sys.stdout.write(delta.content)
+                sys.stdout.flush()
+                full_text += delta.content
+
+            # Accumulate tool call deltas
+            if delta.tool_calls:
+                for tc_delta in delta.tool_calls:
+                    idx = tc_delta.index
+                    if idx not in tool_calls_by_index:
+                        tool_calls_by_index[idx] = {
+                            "id": "",
+                            "type": "function",
+                            "function": {"name": "", "arguments": ""},
+                        }
+                    tc = tool_calls_by_index[idx]
+                    if tc_delta.id:
+                        tc["id"] = tc_delta.id
+                    if tc_delta.function:
+                        if tc_delta.function.name:
+                            tc["function"]["name"] += tc_delta.function.name
+                        if tc_delta.function.arguments:
+                            tc["function"]["arguments"] += tc_delta.function.arguments
+
+        if full_text:
+            print()  # newline after streamed text
+
+        # Build the assistant message
+        assistant_msg: dict[str, Any] = {"role": "assistant"}
+        if full_text:
+            assistant_msg["content"] = full_text
+        if tool_calls_by_index:
+            assistant_msg["tool_calls"] = [
+                tool_calls_by_index[i] for i in sorted(tool_calls_by_index)
+            ]
+
+        # Append assistant message to context and API messages
+        await cq.append(ContextItem(content=assistant_msg))
+        api_messages.append(assistant_msg)
+
+        # If no tool calls, we're done
+        if not tool_calls_by_index:
+            break
+
+        # Execute each tool call and append results
+        for idx in sorted(tool_calls_by_index):
+            tc = tool_calls_by_index[idx]
+            fn_name = tc["function"]["name"]
+            try:
+                fn_args = json.loads(tc["function"]["arguments"])
+            except json.JSONDecodeError:
+                fn_args = {}
+
+            print(f"  [{fn_name}] ", end="", flush=True)
+            result = await execute_tool(fn_name, fn_args)
+
+            # Truncate display of tool result
+            display = result[:200] + "..." if len(result) > 200 else result
+            print(display.replace("\n", " "))
+
+            tool_result_msg = {
+                "role": "tool",
+                "tool_call_id": tc["id"],
+                "content": result,
+            }
+            await cq.append(ContextItem(content=tool_result_msg))
+            api_messages.append(tool_result_msg)
+
+        # Loop back to call LLM again with tool results
