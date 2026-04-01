@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from py_ai_toolkit import PyAIToolkit
 
 from coder.agent.llm.prompt import build_system_prompt, LLM_VISIBLE_TOOLS
+from coder.shared.console import console
 
 TOOL_NAME_MAP = {
     "read": "tool_read",
@@ -137,7 +138,7 @@ async def run_llm_call(
 
         # If the LLM returned text, we're done
         if agent_response.text and not agent_response.tool_calls:
-            print(agent_response.text)
+            console.response(agent_response.text)
             await cq.append(
                 ContextItem(
                     content={"role": "assistant", "content": agent_response.text}
@@ -149,11 +150,10 @@ async def run_llm_call(
         if agent_response.tool_calls:
             tool_results: list[str] = []
             for tc in agent_response.tool_calls:
-                print(f"  [{tc.name}] ", end="", flush=True)
                 result = await execute_tool(tc.name, tc.arguments)
 
                 display = result[:200] + "..." if len(result) > 200 else result
-                print(display.replace("\n", " "))
+                console.tool_trace(tc.name, display.replace("\n", " "))
 
                 tool_results.append(f"[tool result for {tc.name}]: {result}")
 
@@ -180,10 +180,10 @@ async def run_llm_call(
 
         # If both text and tool_calls, print text and continue
         if agent_response.text:
-            print(agent_response.text)
+            console.response(agent_response.text)
             conversation += f"\n\n[assistant]: {agent_response.text}"
 
         # If neither text nor tool_calls, something went wrong
         if not agent_response.text and not agent_response.tool_calls:
-            print("[No response from LLM]")
+            console.error("No response from LLM")
             return
