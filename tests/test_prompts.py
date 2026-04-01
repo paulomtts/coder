@@ -1,6 +1,6 @@
 import os
 import pytest
-from coder.prompts import load_slash_command, list_slash_commands, is_slash_command
+from coder.cli.commands import load_slash_command, list_slash_commands, is_slash_command
 
 def test_is_slash_command():
     assert is_slash_command("/plan fix the bug")

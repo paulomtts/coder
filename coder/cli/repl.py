@@ -1,8 +1,8 @@
 import asyncio
 import sys
 
-from pygents import ContextItem, Turn
-from coder.prompts import is_slash_command, list_slash_commands, load_slash_command
+from pygents import ContextItem
+from coder.cli.commands import is_slash_command, list_slash_commands, load_slash_command
 from coder.agent.session import Session
 
 
