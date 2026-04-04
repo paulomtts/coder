@@ -6,16 +6,6 @@ import sys
 from pygents import Agent, ContextItem, ContextPool, ContextQueue, Turn, tool
 from pygents.registry import ToolRegistry
 
-
-# ── debug helpers ──────────────────────────────────────────────────────────
-def _dbg(label: str, msg: str, color: str = "36") -> None:
-    """Print colored debug line. Colors: 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan."""
-    from coder.shared.console import console
-    if console.verbosity != "debug":
-        return
-    sys.stderr.write(f"\033[{color};1m[{label}]\033[0m \033[{color}m{msg}\033[0m\n")
-    sys.stderr.flush()
-
 from coder.agent.tools import ALL_TOOLS
 from coder.agent.compaction.summarizer import run_compaction, should_compact
 from coder.agent.llm.decide import (
@@ -28,6 +18,17 @@ from coder.agent.llm.prompt import (
     build_messages,
     build_tool_schemas,
 )
+
+
+# ── debug helpers ──────────────────────────────────────────────────────────
+def _dbg(label: str, msg: str, color: str = "36") -> None:
+    """Print colored debug line. Colors: 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan."""
+    from coder.shared.console import console
+
+    if console.verbosity != "debug":
+        return
+    sys.stderr.write(f"\033[{color};1m[{label}]\033[0m \033[{color}m{msg}\033[0m\n")
+    sys.stderr.flush()
 
 
 def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
@@ -79,8 +80,16 @@ def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
 
         agent_response = response.content
 
-        _dbg("DECIDE", f"text = {agent_response.text!r}", "32" if agent_response.tool_calls else "31")
-        _dbg("DECIDE", f"tool_calls = {agent_response.tool_calls}", "32" if agent_response.tool_calls else "31")
+        _dbg(
+            "DECIDE",
+            f"text = {agent_response.text!r}",
+            "32" if agent_response.tool_calls else "31",
+        )
+        _dbg(
+            "DECIDE",
+            f"tool_calls = {agent_response.tool_calls}",
+            "32" if agent_response.tool_calls else "31",
+        )
 
         # Yield assistant message -> agent routes to cq
         assistant_content = ""
@@ -104,7 +113,9 @@ def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
                 tool_name = (
                     f"tool_{tc.name}" if not tc.name.startswith("tool_") else tc.name
                 )
-                _dbg("DECIDE", f"yielding Turn({tool_name}, kwargs={tc.arguments})", "33")
+                _dbg(
+                    "DECIDE", f"yielding Turn({tool_name}, kwargs={tc.arguments})", "33"
+                )
                 yield Turn(tool_name, kwargs=tc.arguments)
             _dbg("DECIDE", "yielding Turn(llm_decide) for re-entry", "33")
             yield Turn(llm_decide)  # self-enqueue after all tools (FIFO)
@@ -115,7 +126,9 @@ def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
     @tool()
     async def llm_respond(cq: ContextQueue, pool: ContextPool):
         """Streaming LLM call that yields text chunks for the REPL to print."""
-        _dbg("RESPOND", f"entering llm_respond, cq has {len(list(cq.items))} items", "35")
+        _dbg(
+            "RESPOND", f"entering llm_respond, cq has {len(list(cq.items))} items", "35"
+        )
         toolkit = session.toolkit
         allowed_tools = get_allowed_tools(pool)
         system_prompt = build_system_prompt(pool, allowed_tools)
@@ -202,6 +215,7 @@ def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
     @agent.after_turn
     async def trace_tool(agent: Agent, turn: Turn) -> None:
         from coder.shared.console import console
+
         raw_name = turn.tool.metadata.name
         if raw_name in _internal_tools:
             return
@@ -212,7 +226,11 @@ def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
                 if isinstance(item, ContextItem) and isinstance(item.content, dict):
                     result_preview = str(item.content.get("content", ""))
                     break
-        display = result_preview[:200] + "..." if len(result_preview) > 200 else result_preview
+        display = (
+            result_preview[:200] + "..."
+            if len(result_preview) > 200
+            else result_preview
+        )
         display = display.replace("\n", " ")
         # Extract context hint from kwargs
         context = (

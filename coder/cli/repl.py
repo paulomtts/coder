@@ -66,7 +66,9 @@ async def handle_input(session: Session, user_input: str) -> str | None:
             "  /quiet         - Hide tool traces (show summary after each turn)"
         )
         console.system("  /verbose       - Show tool traces (default)")
-        console.system("  /debug         - Show debug logs (LLM calls, routing, context)")
+        console.system(
+            "  /debug         - Show debug logs (LLM calls, routing, context)"
+        )
         console.system("  /quit          - Exit")
         if commands:
             console.system("\nSlash commands:")
