@@ -11,10 +11,11 @@ cross-cutting constants.
 ```
 coder/
     agent/                       # Core agent orchestration
-        loop.py                  # Two-loop agent execution (inner LLM+tool, outer steering)
-        session.py               # Session lifecycle, context pool, role switching, compaction
+        loop.py                  # Agent creation, tool registration, hook wiring (steering, compaction)
+        session.py               # Session lifecycle, context pool, role switching
         llm/                     # LLM integration boundary
-            call.py              # Streaming LLM call loop + tool dispatch
+            decide.py            # llm_decide tool — structured LLM call, yields Turns for tool execution
+            respond.py           # llm_respond tool — streaming LLM call, yields text chunks
             prompt.py            # System prompt assembly, guidelines, tool schemas
         compaction/              # Context window management
             summarizer.py        # Token estimation, split logic, LLM-based summarization
@@ -24,7 +25,7 @@ coder/
         tools/                   # Tool implementations (pygents @tool decorators)
             read.py, write.py, edit.py, bash.py, grep.py, find.py, ls.py
     cli/                         # User interface
-        repl.py                  # Interactive REPL loop, input handling
+        repl.py                  # Interactive REPL loop, concurrent steering, agent.run() consumption
         commands.py              # Slash command loading & discovery
     config/                      # Configuration & resource loading
         loader.py                # .env, YAML, env var config loading
@@ -54,6 +55,8 @@ uv run pytest
 
 - All tools are async pygents `@tool()` functions in `coder/agent/tools/`
 - Tools import constants from `coder.shared.constants`
-- The session orchestrates everything: prompt assembly, compaction, role switching
+- The agent loop is tool-driven: llm_decide yields Turns, pygents Agent.run() processes the queue
+- Compaction is triggered by a before_invoke hook on llm_decide
+- Steering messages are injected via a before_turn hook on the agent
 - System prompt is assembled from layered sources (base, role, project context, append)
 - Config loads from `.env` -> env vars -> `.coder/config.yaml` (later overrides earlier)

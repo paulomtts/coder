@@ -1,12 +1,12 @@
 import asyncio
-from pygents import tool
+from pygents import ContextItem, tool
 from coder.shared.constants import FIND_MAX_RESULTS, MAX_BYTES
 
 
 @tool()
 async def tool_find(
     pattern: str, path: str | None = None, limit: int | None = None
-) -> str:
+):
     """Search for files by glob pattern using ripgrep."""
     args = ["rg", "--files", "--glob", pattern, "--color=never"]
     if path:
@@ -19,7 +19,8 @@ async def tool_find(
         stdout, stderr = await proc.communicate()
         output = stdout.decode("utf-8", errors="replace")
         if not output.strip():
-            return "No matches found."
+            yield ContextItem(content={"role": "tool", "content": "No matches found."})
+            return
         lines = output.strip().split("\n")
         truncated = False
         if len(lines) > max_results:
@@ -32,8 +33,8 @@ async def tool_find(
             truncated = True
         if truncated:
             result += f"\n\n[Results truncated. Limit: {max_results} files]"
-        return result
+        yield ContextItem(content={"role": "tool", "content": result})
     except FileNotFoundError:
-        return "Error: 'rg' (ripgrep) is not installed."
+        yield ContextItem(content={"role": "tool", "content": "Error: 'rg' (ripgrep) is not installed."})
     except Exception as e:
-        return f"Error running find: {e}"
+        yield ContextItem(content={"role": "tool", "content": f"Error running find: {e}"})

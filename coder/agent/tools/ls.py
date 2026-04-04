@@ -1,16 +1,17 @@
 import os
-from pygents import tool
+from pygents import ContextItem, tool
 from coder.shared.constants import LS_MAX_ENTRIES, MAX_BYTES
 
 
 @tool()
-async def tool_ls(path: str | None = None, limit: int | None = None) -> str:
+async def tool_ls(path: str | None = None, limit: int | None = None):
     """List directory contents. Sorted alphabetically, '/' suffix for dirs. Includes dotfiles."""
     target = path if path else os.getcwd()
     max_entries = limit if limit is not None else LS_MAX_ENTRIES
     try:
         if not os.path.isdir(target):
-            return f"Error: not a directory: {target}"
+            yield ContextItem(content={"role": "tool", "content": f"Error: not a directory: {target}"})
+            return
         entries = sorted(os.listdir(target))
         formatted = []
         for entry in entries:
@@ -30,6 +31,6 @@ async def tool_ls(path: str | None = None, limit: int | None = None) -> str:
             truncated = True
         if truncated:
             result += f"\n\n[Listing truncated. Limit: {max_entries} entries]"
-        return result
+        yield ContextItem(content={"role": "tool", "content": result})
     except Exception as e:
-        return f"Error listing {target}: {e}"
+        yield ContextItem(content={"role": "tool", "content": f"Error listing {target}: {e}"})

@@ -1,7 +1,7 @@
 # coder/tools/bash.py
 import asyncio
 import tempfile
-from pygents import tool
+from pygents import ContextItem, tool
 from coder.shared.constants import MAX_BYTES, MAX_LINES
 
 
@@ -31,7 +31,7 @@ def _truncate_output(output: str) -> tuple[str, str | None]:
 @tool()
 async def tool_bash(
     command: str, timeout: int | None = None, cwd: str | None = None
-) -> str:
+):
     """Execute a bash command in the current working directory."""
     try:
         proc = await asyncio.create_subprocess_shell(
@@ -45,7 +45,8 @@ async def tool_bash(
         except asyncio.TimeoutError:
             proc.kill()
             await proc.communicate()
-            return f"Command timed out after {timeout}s: {command}"
+            yield ContextItem(content={"role": "tool", "content": f"Command timed out after {timeout}s: {command}"})
+            return
         stdout_str = stdout.decode("utf-8", errors="replace") if stdout else ""
         stderr_str = stderr.decode("utf-8", errors="replace") if stderr else ""
         output = stdout_str
@@ -54,6 +55,6 @@ async def tool_bash(
         if proc.returncode != 0:
             output += f"\n[Exit code: {proc.returncode}]"
         truncated, _ = _truncate_output(output)
-        return truncated
+        yield ContextItem(content={"role": "tool", "content": truncated})
     except Exception as e:
-        return f"Error executing command: {e}"
+        yield ContextItem(content={"role": "tool", "content": f"Error executing command: {e}"})
