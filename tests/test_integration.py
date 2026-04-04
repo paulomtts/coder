@@ -45,27 +45,6 @@ async def test_session_role_switching(tmp_path):
         "scout" in str(role.content).lower()
         or "investigate" in str(role.content).lower()
     )
-    assert session.allowed_tools is not None
-    assert "tool_write" not in session.allowed_tools
-
-
-@pytest.mark.asyncio
-async def test_session_compaction(tmp_path):
-    session = Session()
-    with patch.dict(
-        "os.environ", {"LLM_MODEL": "test-model", "LLM_API_KEY": "test-key"}
-    ):
-        await session.start(cwd=str(tmp_path))
-    session.toolkit.chat = AsyncMock(
-        return_value=MagicMock(content="## Goal\nTest goal")
-    )
-    for i in range(40):
-        await session.cq.append(
-            ContextItem(
-                content={"role": "user", "content": f"Message {i} " + "x" * 5000}
-            )
-        )
-    session.config.compaction_threshold = 0.01
-    await session.check_compaction()
-    summary = session.pool.get("compaction-summary")
-    assert "Goal" in str(summary.content)
+    allowed_tools_item = session.pool.get("allowed-tools")
+    assert allowed_tools_item is not None
+    assert "tool_write" not in allowed_tools_item.content

@@ -5,11 +5,9 @@ from py_ai_toolkit import LLMConfig, PyAIToolkit
 from pygents import Agent, ContextItem, ContextPool, ContextQueue
 
 from coder.agent.loop import create_agent
-from coder.agent.compaction import (
+from coder.agent.compaction.prompts import (
     BRANCH_SUMMARY_PREAMBLE,
     BRANCH_SUMMARY_PROMPT,
-    run_compaction,
-    should_compact,
 )
 from coder.config.loader import SessionConfig, load_config
 from coder.agent.personas.definitions import get_persona
@@ -39,7 +37,6 @@ class Session:
     cq: ContextQueue = field(default_factory=lambda: ContextQueue(limit=50))
     config: SessionConfig = field(default_factory=SessionConfig)
     steering_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
-    allowed_tools: set[str] | None = None
     _active_role: str | None = None
 
     async def start(self, cwd: str | None = None) -> None:
@@ -118,7 +115,18 @@ class Session:
                 content=persona.system_prompt,
             )
         )
-        self.allowed_tools = set(persona.allowed_tools)
+        # Store allowed_tools in pool for llm_decide to read
+        try:
+            await self.pool.remove("allowed-tools")
+        except KeyError:
+            pass
+        await self.pool.add(
+            ContextItem(
+                id="allowed-tools",
+                description=f"Tool filter for {persona.name} persona",
+                content=set(persona.allowed_tools),
+            )
+        )
         self._active_role = persona_name
 
     async def clear_role(self) -> None:
@@ -126,36 +134,9 @@ class Session:
             await self.pool.remove("active-role")
         except KeyError:
             pass
-        self.allowed_tools = None
+        try:
+            await self.pool.remove("allowed-tools")
+        except KeyError:
+            pass
         self._active_role = None
 
-    async def check_compaction(self) -> None:
-        if not self.toolkit:
-            return
-        items = self.cq.items
-        max_tokens = 128000
-        if not should_compact(items, self.config.compaction_threshold, max_tokens):
-            return
-        existing_summary = None
-        try:
-            summary_item = self.pool.get("compaction-summary")
-            existing_summary = str(summary_item.content)
-        except KeyError:
-            pass
-        summary, recent = await run_compaction(
-            self.toolkit, items, existing_summary, self.config.keep_recent_tokens
-        )
-        try:
-            await self.pool.remove("compaction-summary")
-        except KeyError:
-            pass
-        await self.pool.add(
-            ContextItem(
-                id="compaction-summary",
-                description="Compacted conversation summary",
-                content=summary,
-            )
-        )
-        await self.cq.clear()
-        for item in recent:
-            await self.cq.append(item)

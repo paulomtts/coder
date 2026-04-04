@@ -47,3 +47,24 @@ def test_reviewer_no_write_tools():
     tools = get_allowed_tools("reviewer")
     assert "tool_write" not in tools
     assert "tool_edit" not in tools
+
+
+@pytest.mark.asyncio
+async def test_switch_role_stores_allowed_tools_in_pool():
+    """switch_role should store allowed_tools in the pool for llm_decide to read."""
+    from unittest.mock import AsyncMock, MagicMock
+    from coder.agent.session import Session
+    from pygents import ContextPool, ContextQueue
+
+    session = Session()
+    session.toolkit = AsyncMock()
+    session.toolkit.chat = AsyncMock(return_value=MagicMock(content="Branch summary"))
+    session.cq = ContextQueue(limit=10)
+    session.pool = ContextPool()
+
+    await session.switch_role("scout")
+
+    item = session.pool.get("allowed-tools")
+    assert item is not None
+    assert "tool_read" in item.content
+    assert "tool_write" not in item.content  # scout can't write
