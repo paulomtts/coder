@@ -1,7 +1,8 @@
+# coder/cli/repl.py
 import asyncio
 import sys
 
-from pygents import ContextItem
+from pygents import ContextItem, Turn
 from coder.cli.commands import is_slash_command, list_slash_commands, load_slash_command
 from coder.agent.session import Session
 from coder.shared.console import console
@@ -82,10 +83,41 @@ async def handle_input(session: Session, user_input: str) -> str | None:
     return user_input
 
 
+async def run_agent(session: Session) -> None:
+    """Consume agent.run() and print streamed text from llm_respond."""
+    async for turn, value in session.agent.run():
+        if isinstance(value, str):
+            sys.stdout.write(value)
+            sys.stdout.flush()
+
+
+async def read_steering(session: Session, stop_event: asyncio.Event) -> None:
+    """Background task: read stdin and push messages into steering queue."""
+    loop = asyncio.get_event_loop()
+    while not stop_event.is_set():
+        try:
+            line = await asyncio.wait_for(
+                loop.run_in_executor(None, sys.stdin.readline),
+                timeout=0.5,
+            )
+            if not line:
+                break
+            text = line.rstrip("\n")
+            if text.strip():
+                await session.steering_queue.put(text)
+        except asyncio.TimeoutError:
+            continue
+        except (EOFError, KeyboardInterrupt):
+            break
+
+
 async def main(cwd: str | None = None) -> None:
     session = Session()
     await session.start(cwd=cwd)
     console.system("coder ready. Type /help for commands, /quit to exit.\n")
+
+    from coder.agent.llm.decide import llm_decide
+
     while True:
         try:
             sys.stdout.write(console.prompt())
@@ -99,12 +131,25 @@ async def main(cwd: str | None = None) -> None:
             message = await handle_input(session, user_input)
             if message is None:
                 continue
+
             await session.cq.append(
                 ContextItem(content={"role": "user", "content": message})
             )
-            from coder.agent.loop import run_agent_loop
+            await session.agent.put(Turn(llm_decide))
 
-            await run_agent_loop(session)
+            # Run agent + background steering reader concurrently
+            stop_event = asyncio.Event()
+            steering_task = asyncio.create_task(read_steering(session, stop_event))
+            try:
+                await run_agent(session)
+            finally:
+                stop_event.set()
+                steering_task.cancel()
+                try:
+                    await steering_task
+                except asyncio.CancelledError:
+                    pass
+
             console.flush_tool_summary()
             console.system("")
         except KeyboardInterrupt:
