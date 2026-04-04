@@ -1,6 +1,6 @@
 # coder/tools/grep.py
 import asyncio
-from pygents import tool
+from pygents import ContextItem, tool
 from coder.shared.constants import GREP_MAX_LINE_LENGTH, GREP_MAX_MATCHES, MAX_BYTES
 
 
@@ -13,7 +13,7 @@ async def tool_grep(
     literal: bool = False,
     context: int | None = None,
     limit: int | None = None,
-) -> str:
+):
     """Search file contents for a pattern using ripgrep."""
     args = ["rg", "--no-heading", "--line-number", "--color=never"]
     if ignore_case:
@@ -36,7 +36,8 @@ async def tool_grep(
         stdout, stderr = await proc.communicate()
         output = stdout.decode("utf-8", errors="replace")
         if not output.strip():
-            return "No matches found."
+            yield ContextItem(content={"role": "tool", "content": "No matches found."})
+            return
         lines = output.split("\n")
         lines = [
             line[:GREP_MAX_LINE_LENGTH] + "..."
@@ -49,8 +50,8 @@ async def tool_grep(
             encoded = output.encode("utf-8", errors="replace")[:MAX_BYTES]
             output = encoded.decode("utf-8", errors="replace")
             output += f"\n\n[Output truncated at {MAX_BYTES // 1024}KB]"
-        return output
+        yield ContextItem(content={"role": "tool", "content": output})
     except FileNotFoundError:
-        return "Error: 'rg' (ripgrep) is not installed."
+        yield ContextItem(content={"role": "tool", "content": "Error: 'rg' (ripgrep) is not installed."})
     except Exception as e:
-        return f"Error running grep: {e}"
+        yield ContextItem(content={"role": "tool", "content": f"Error running grep: {e}"})
