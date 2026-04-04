@@ -105,6 +105,36 @@ def build_messages(
     return messages
 
 
+def get_allowed_tools(pool: ContextPool) -> set[str] | None:
+    try:
+        item = pool.get("allowed-tools")
+        tools = item.content
+        if isinstance(tools, set):
+            return tools
+        return None
+    except KeyError:
+        return None
+
+
+def get_compaction_summary(pool: ContextPool) -> str | None:
+    try:
+        item = pool.get("compaction-summary")
+        return str(item.content)
+    except KeyError:
+        return None
+
+
+def build_conversation(messages: list[dict]) -> str:
+    """Build a conversation string from a list of message dicts."""
+    parts: list[str] = []
+    for msg in messages:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        if content:
+            parts.append(f"[{role}]: {content}")
+    return "\n\n".join(parts)
+
+
 def build_tool_schemas(allowed_tools: set[str] | None) -> list[dict[str, Any]]:
     tools = allowed_tools or LLM_VISIBLE_TOOLS
     schemas = []

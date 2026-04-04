@@ -2,7 +2,6 @@
 from typing import Any
 
 from pydantic import BaseModel, Field
-from pygents import ContextPool
 
 
 class ToolCallRequest(BaseModel):
@@ -28,22 +27,3 @@ class AgentResponse(BaseModel):
         None,
         description="Tools to call before responding. Always use this when you need to read files, search code, run commands, or verify anything in the codebase. You can set text alongside tool_calls for brief status notes.",
     )
-
-
-def get_allowed_tools(pool: ContextPool) -> set[str] | None:
-    try:
-        item = pool.get("allowed-tools")
-        tools = item.content
-        if isinstance(tools, set):
-            return tools
-        return None
-    except KeyError:
-        return None
-
-
-def get_compaction_summary(pool: ContextPool) -> str | None:
-    try:
-        item = pool.get("compaction-summary")
-        return str(item.content)
-    except KeyError:
-        return None

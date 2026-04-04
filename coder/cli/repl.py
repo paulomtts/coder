@@ -4,6 +4,7 @@ import sys
 import threading
 
 from pygents import ContextItem, Turn
+from coder.agent.tools.llm_decide import llm_decide
 from coder.cli.commands import is_slash_command, list_slash_commands, load_slash_command
 from coder.agent.session import Session
 from coder.shared.console import console
@@ -164,7 +165,7 @@ async def main(cwd: str | None = None) -> None:
             await session.cq.append(
                 ContextItem(content={"role": "user", "content": message})
             )
-            await session.agent.put(Turn(session._llm_decide))
+            await session.agent.put(Turn(llm_decide))
 
             # Run agent + background steering reader concurrently
             stop_event = asyncio.Event()

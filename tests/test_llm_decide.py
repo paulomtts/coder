@@ -6,6 +6,7 @@ from pygents import ContextItem, ContextPool, ContextQueue, Turn
 
 from coder.agent.loop import create_agent
 from coder.agent.llm.decide import AgentResponse, ToolCallRequest
+from coder.agent.tools.llm_decide import llm_decide
 
 
 @pytest.fixture
@@ -20,12 +21,17 @@ def session():
 
 
 @pytest.fixture
-def pool():
+def pool(session):
     pool = ContextPool()
     pool._items["base-prompt"] = ContextItem(
         id="base-prompt",
         description="Base system prompt",
         content="You are a coding assistant.\n\nAvailable tools:\n{tools_list}\n\nGuidelines:\n{guidelines}",
+    )
+    pool._items["session"] = ContextItem(
+        id="session",
+        description="Session reference",
+        content=session,
     )
     return pool
 
@@ -38,15 +44,13 @@ def cq():
 
 
 @pytest.fixture
-def agent_and_session(session, pool, cq):
-    agent = create_agent(session=session, pool=pool, cq=cq)
-    return agent, session
+def agent(pool, cq):
+    return create_agent(pool=pool, cq=cq)
 
 
 @pytest.mark.asyncio
-async def test_llm_decide_yields_tool_turns(agent_and_session, pool, cq):
+async def test_llm_decide_yields_tool_turns(agent, session, pool, cq):
     """When LLM returns tool calls, llm_decide yields ContextItem + Turn per tool + Turn(llm_decide)."""
-    agent, session = agent_and_session
     mock_response = MagicMock()
     mock_response.content = AgentResponse(
         text=None,
@@ -54,7 +58,6 @@ async def test_llm_decide_yields_tool_turns(agent_and_session, pool, cq):
     )
     session.toolkit.asend = AsyncMock(return_value=mock_response)
 
-    llm_decide = session._llm_decide
     yielded = []
     async for value in llm_decide(cq=cq, pool=pool):
         yielded.append(value)
@@ -73,11 +76,8 @@ async def test_llm_decide_yields_tool_turns(agent_and_session, pool, cq):
 
 
 @pytest.mark.asyncio
-async def test_llm_decide_yields_respond_turn_when_no_tools(
-    agent_and_session, pool, cq
-):
+async def test_llm_decide_yields_respond_turn_when_no_tools(agent, session, pool, cq):
     """When LLM returns text only, llm_decide yields ContextItem + Turn(llm_respond)."""
-    agent, session = agent_and_session
     mock_response = MagicMock()
     mock_response.content = AgentResponse(
         text="The file contains a greeting function.",
@@ -85,7 +85,6 @@ async def test_llm_decide_yields_respond_turn_when_no_tools(
     )
     session.toolkit.asend = AsyncMock(return_value=mock_response)
 
-    llm_decide = session._llm_decide
     yielded = []
     async for value in llm_decide(cq=cq, pool=pool):
         yielded.append(value)
@@ -97,9 +96,8 @@ async def test_llm_decide_yields_respond_turn_when_no_tools(
 
 
 @pytest.mark.asyncio
-async def test_llm_decide_yields_multiple_tool_turns(agent_and_session, pool, cq):
+async def test_llm_decide_yields_multiple_tool_turns(agent, session, pool, cq):
     """When LLM returns multiple tool calls, llm_decide yields one Turn per tool + self-enqueue."""
-    agent, session = agent_and_session
     mock_response = MagicMock()
     mock_response.content = AgentResponse(
         text=None,
@@ -111,7 +109,6 @@ async def test_llm_decide_yields_multiple_tool_turns(agent_and_session, pool, cq
     )
     session.toolkit.asend = AsyncMock(return_value=mock_response)
 
-    llm_decide = session._llm_decide
     yielded = []
     async for value in llm_decide(cq=cq, pool=pool):
         yielded.append(value)

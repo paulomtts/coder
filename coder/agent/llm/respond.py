@@ -1,3 +1,2 @@
 # coder/agent/llm/respond.py
-# The llm_respond tool is defined inside create_agent() in coder/agent/loop.py
-# to capture the session reference via closure.
+# The llm_respond tool lives in coder/agent/tools/llm_respond.py

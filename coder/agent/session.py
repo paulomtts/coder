@@ -76,7 +76,14 @@ class Session:
                     content=append,
                 )
             )
-        self.agent = create_agent(session=self, pool=self.pool, cq=self.cq)
+        await self.pool.add(
+            ContextItem(
+                id="session",
+                description="Session reference for tools and hooks",
+                content=self,
+            )
+        )
+        self.agent = create_agent(pool=self.pool, cq=self.cq)
 
     async def switch_role(self, persona_name: str) -> None:
         persona = get_persona(persona_name)

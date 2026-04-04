@@ -19,7 +19,7 @@ async def test_create_agent_has_all_tools():
 
     pool = ContextPool()
     cq = ContextQueue(limit=10)
-    agent = create_agent(session=session, pool=pool, cq=cq)
+    agent = create_agent(pool=pool, cq=cq)
 
     tool_names = {t.metadata.name for t in agent.tools}
     assert "tool_read" in tool_names
@@ -44,5 +44,5 @@ async def test_create_agent_name():
 
     pool = ContextPool()
     cq = ContextQueue(limit=10)
-    agent = create_agent(session=session, pool=pool, cq=cq)
+    agent = create_agent(pool=pool, cq=cq)
     assert agent.name == "coder"

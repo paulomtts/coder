@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 from pygents import ContextItem, ContextPool, ContextQueue
 
 from coder.agent.loop import create_agent
+from coder.agent.tools.llm_respond import llm_respond
 
 
 @pytest.fixture
@@ -19,12 +20,17 @@ def session():
 
 
 @pytest.fixture
-def pool():
+def pool(session):
     pool = ContextPool()
     pool._items["base-prompt"] = ContextItem(
         id="base-prompt",
         description="Base system prompt",
         content="You are a coding assistant.\n\nAvailable tools:\n{tools_list}\n\nGuidelines:\n{guidelines}",
+    )
+    pool._items["session"] = ContextItem(
+        id="session",
+        description="Session reference",
+        content=session,
     )
     return pool
 
@@ -49,9 +55,8 @@ async def _fake_stream(*args, **kwargs):
 async def test_llm_respond_yields_chunks_then_context_item(session, pool, cq):
     """llm_respond yields text chunks then a final ContextItem."""
     session.toolkit.stream = _fake_stream
-    create_agent(session=session, pool=pool, cq=cq)
+    create_agent(pool=pool, cq=cq)
 
-    llm_respond = session._llm_respond
     yielded = []
     async for value in llm_respond(cq=cq, pool=pool):
         yielded.append(value)

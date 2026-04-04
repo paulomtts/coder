@@ -1,3 +1,4 @@
+import sys
 from dataclasses import dataclass
 
 from rich.console import Console as RichConsole
@@ -147,3 +148,11 @@ class CoderConsole:
 
 
 console = CoderConsole()
+
+
+def dbg(label: str, msg: str, color: str = "36") -> None:
+    """Print colored debug line. Colors: 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan."""
+    if console.verbosity != "debug":
+        return
+    sys.stderr.write(f"\033[{color};1m[{label}]\033[0m \033[{color}m{msg}\033[0m\n")
+    sys.stderr.flush()
