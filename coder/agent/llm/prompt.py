@@ -13,13 +13,14 @@ LLM_VISIBLE_TOOLS = {
 }
 GUIDELINE_BASH_ONLY = "Use bash for file operations like ls, rg, find"
 GUIDELINE_PREFER_TOOLS = "Prefer grep/find/ls tools over bash for file exploration (faster, respects .gitignore)"
+GUIDELINE_TOOLS_FIRST = "Always use tools to ground your answers in actual code and project state. Never answer from assumptions or prior knowledge when you can read, grep, or list files instead."
 GUIDELINE_CONCISE = "Be concise in your responses"
 GUIDELINE_FILE_PATHS = "Show file paths clearly when working with files"
 
 
 def _build_guidelines(allowed_tools: set[str] | None) -> str:
     tools = allowed_tools or LLM_VISIBLE_TOOLS
-    guidelines = []
+    guidelines = [GUIDELINE_TOOLS_FIRST]
     has_bash = "tool_bash" in tools
     has_search_tools = (
         "tool_grep" in tools or "tool_find" in tools or "tool_ls" in tools
