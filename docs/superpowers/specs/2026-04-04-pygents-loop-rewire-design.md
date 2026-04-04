@@ -10,7 +10,7 @@ Restructure coder's agent loop to actually use pygents' `Agent.run()` and tool-d
 | Tool call granularity | One Turn per tool call | Maximizes hookability; each tool flows through agent queue individually |
 | Flow control | Tool-driven only | Hooks are for side effects; only tools yield Turns |
 | Streaming | Final response only | `llm_decide` uses structured output; `llm_respond` streams text |
-| Toolkit injection | Fixed kwarg via lambda | `@tool(toolkit=lambda: session.toolkit)` |
+| Toolkit injection | Fixed kwarg via lambda | `@tool(toolkit=lambda: session.toolkit)` — `llm_decide` and `llm_respond` are defined inside `create_agent()` which closes over `session` |
 | Steering | Concurrent stdin reader | Background task reads stdin while agent runs |
 | Compaction trigger | `before_invoke` hook on `llm_decide` | Fires before every LLM call, checks token pressure |
 | Personas | Prompt overlay + tool filtering | No model switching (see backlog) |
