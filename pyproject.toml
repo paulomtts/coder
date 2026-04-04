@@ -8,6 +8,7 @@ dependencies = [
     "pygents>=0.6.7",
     "py-ai-toolkit>=0.6.1",
     "rich>=14.0.0",
+    "pydantic>=2.12.5",
 ]
 
 [project.optional-dependencies]

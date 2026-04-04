@@ -1,9 +1,8 @@
 # tests/test_agent_loop.py
 import asyncio
 import pytest
-from unittest.mock import AsyncMock, MagicMock
-from pygents import ContextItem, ContextPool, ContextQueue
-from pygents.registry import ToolRegistry
+from unittest.mock import MagicMock
+from pygents import ContextPool, ContextQueue
 
 from coder.agent.loop import create_agent
 

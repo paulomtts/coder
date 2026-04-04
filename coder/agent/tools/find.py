@@ -4,9 +4,7 @@ from coder.shared.constants import FIND_MAX_RESULTS, MAX_BYTES
 
 
 @tool()
-async def tool_find(
-    pattern: str, path: str | None = None, limit: int | None = None
-):
+async def tool_find(pattern: str, path: str | None = None, limit: int | None = None):
     """Search for files by glob pattern using ripgrep."""
     args = ["rg", "--files", "--glob", pattern, "--color=never"]
     if path:
@@ -35,6 +33,13 @@ async def tool_find(
             result += f"\n\n[Results truncated. Limit: {max_results} files]"
         yield ContextItem(content={"role": "tool", "content": result})
     except FileNotFoundError:
-        yield ContextItem(content={"role": "tool", "content": "Error: 'rg' (ripgrep) is not installed."})
+        yield ContextItem(
+            content={
+                "role": "tool",
+                "content": "Error: 'rg' (ripgrep) is not installed.",
+            }
+        )
     except Exception as e:
-        yield ContextItem(content={"role": "tool", "content": f"Error running find: {e}"})
+        yield ContextItem(
+            content={"role": "tool", "content": f"Error running find: {e}"}
+        )

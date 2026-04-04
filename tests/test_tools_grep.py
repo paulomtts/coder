@@ -29,7 +29,9 @@ async def test_grep_respects_glob_filter(tmp_path):
 @pytest.mark.asyncio
 async def test_grep_case_insensitive(tmp_path):
     (tmp_path / "f.txt").write_text("Hello World\n")
-    result = await _result(tool_grep(pattern="hello", path=str(tmp_path), ignore_case=True))
+    result = await _result(
+        tool_grep(pattern="hello", path=str(tmp_path), ignore_case=True)
+    )
     assert "Hello" in result
 
 

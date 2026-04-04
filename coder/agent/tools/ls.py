@@ -10,7 +10,9 @@ async def tool_ls(path: str | None = None, limit: int | None = None):
     max_entries = limit if limit is not None else LS_MAX_ENTRIES
     try:
         if not os.path.isdir(target):
-            yield ContextItem(content={"role": "tool", "content": f"Error: not a directory: {target}"})
+            yield ContextItem(
+                content={"role": "tool", "content": f"Error: not a directory: {target}"}
+            )
             return
         entries = sorted(os.listdir(target))
         formatted = []
@@ -33,4 +35,6 @@ async def tool_ls(path: str | None = None, limit: int | None = None):
             result += f"\n\n[Listing truncated. Limit: {max_entries} entries]"
         yield ContextItem(content={"role": "tool", "content": result})
     except Exception as e:
-        yield ContextItem(content={"role": "tool", "content": f"Error listing {target}: {e}"})
+        yield ContextItem(
+            content={"role": "tool", "content": f"Error listing {target}: {e}"}
+        )

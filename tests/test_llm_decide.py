@@ -73,7 +73,9 @@ async def test_llm_decide_yields_tool_turns(agent_and_session, pool, cq):
 
 
 @pytest.mark.asyncio
-async def test_llm_decide_yields_respond_turn_when_no_tools(agent_and_session, pool, cq):
+async def test_llm_decide_yields_respond_turn_when_no_tools(
+    agent_and_session, pool, cq
+):
     """When LLM returns text only, llm_decide yields ContextItem + Turn(llm_respond)."""
     agent, session = agent_and_session
     mock_response = MagicMock()

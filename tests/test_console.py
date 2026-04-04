@@ -139,7 +139,7 @@ class TestVerbosity:
         from coder.shared.console import CoderConsole
 
         c = CoderConsole(force_theme="dark")
-        assert c.verbosity == "normal"
+        assert c.verbosity == "verbose"
 
     def test_set_verbosity(self):
         from coder.shared.console import CoderConsole
@@ -147,8 +147,8 @@ class TestVerbosity:
         c = CoderConsole(force_theme="dark")
         c.set_verbosity("quiet")
         assert c.verbosity == "quiet"
-        c.set_verbosity("normal")
-        assert c.verbosity == "normal"
+        c.set_verbosity("verbose")
+        assert c.verbosity == "verbose"
 
     def test_quiet_mode_suppresses_tool_trace(self):
         c, buf = _capture_console()

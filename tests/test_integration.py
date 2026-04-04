@@ -1,7 +1,6 @@
 # tests/test_integration.py
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from pygents import ContextItem
 
 from coder.agent.session import Session
 

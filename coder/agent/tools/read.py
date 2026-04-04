@@ -25,19 +25,21 @@ def _truncate_output(content: str, max_lines: int, max_bytes: int) -> str:
 
 
 @tool()
-async def tool_read(
-    path: str, offset: int | None = None, limit: int | None = None
-):
+async def tool_read(path: str, offset: int | None = None, limit: int | None = None):
     """Read the contents of a file. Supports text files and images."""
     try:
         if not os.path.exists(path):
-            yield ContextItem(content={"role": "tool", "content": f"Error: file not found: {path}"})
+            yield ContextItem(
+                content={"role": "tool", "content": f"Error: file not found: {path}"}
+            )
             return
         ext = os.path.splitext(path)[1].lower()
         if ext in IMAGE_EXTENSIONS:
             with open(path, "rb") as f:
                 data = base64.b64encode(f.read()).decode("ascii")
-            yield ContextItem(content={"role": "tool", "content": f"[Image: {path}]\nBase64: {data}"})
+            yield ContextItem(
+                content={"role": "tool", "content": f"[Image: {path}]\nBase64: {data}"}
+            )
             return
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -47,6 +49,13 @@ async def tool_read(
         if limit is not None:
             lines = lines[:limit]
         content = "".join(lines)
-        yield ContextItem(content={"role": "tool", "content": _truncate_output(content, MAX_LINES, MAX_BYTES)})
+        yield ContextItem(
+            content={
+                "role": "tool",
+                "content": _truncate_output(content, MAX_LINES, MAX_BYTES),
+            }
+        )
     except Exception as e:
-        yield ContextItem(content={"role": "tool", "content": f"Error reading {path}: {e}"})
+        yield ContextItem(
+            content={"role": "tool", "content": f"Error reading {path}: {e}"}
+        )

@@ -1,6 +1,7 @@
 # coder/cli/repl.py
 import asyncio
 import sys
+import threading
 
 from pygents import ContextItem, Turn
 from coder.cli.commands import is_slash_command, list_slash_commands, load_slash_command
@@ -8,18 +9,45 @@ from coder.agent.session import Session
 from coder.shared.console import console
 
 
-async def read_user_input() -> str | None:
-    loop = asyncio.get_event_loop()
-    try:
-        line = await loop.run_in_executor(None, sys.stdin.readline)
-        if not line:
-            return None
-        return line.rstrip("\n")
-    except (EOFError, KeyboardInterrupt):
-        return None
+class _StdinReader:
+    """Single-thread stdin reader that feeds an asyncio Queue.
+
+    Ensures only one thread ever blocks on sys.stdin.readline, avoiding
+    orphaned executor threads that steal input.
+    """
+
+    def __init__(self) -> None:
+        self._queue: asyncio.Queue[str | None] = asyncio.Queue()
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def start(self, loop: asyncio.AbstractEventLoop) -> None:
+        self._loop = loop
+        t = threading.Thread(target=self._run, daemon=True)
+        t.start()
+
+    def _run(self) -> None:
+        assert self._loop is not None
+        while True:
+            try:
+                line = sys.stdin.readline()
+                if not line:  # EOF
+                    self._loop.call_soon_threadsafe(self._queue.put_nowait, None)
+                    break
+                self._loop.call_soon_threadsafe(
+                    self._queue.put_nowait, line.rstrip("\n")
+                )
+            except (EOFError, KeyboardInterrupt):
+                self._loop.call_soon_threadsafe(self._queue.put_nowait, None)
+                break
+
+    async def readline(self) -> str | None:
+        return await self._queue.get()
 
 
-BUILTIN_COMMANDS = {"/help", "/role", "/quit", "/exit", "/quiet", "/verbose"}
+_stdin = _StdinReader()
+
+
+BUILTIN_COMMANDS = {"/help", "/role", "/quit", "/exit", "/quiet", "/verbose", "/debug"}
 
 
 async def handle_input(session: Session, user_input: str) -> str | None:
@@ -38,6 +66,7 @@ async def handle_input(session: Session, user_input: str) -> str | None:
             "  /quiet         - Hide tool traces (show summary after each turn)"
         )
         console.system("  /verbose       - Show tool traces (default)")
+        console.system("  /debug         - Show debug logs (LLM calls, routing, context)")
         console.system("  /quit          - Exit")
         if commands:
             console.system("\nSlash commands:")
@@ -59,12 +88,16 @@ async def handle_input(session: Session, user_input: str) -> str | None:
                     f"Unknown role: {role_name}. Available: scout, planner, worker, reviewer"
                 )
         return None
-    if stripped in ("/quiet", "/verbose"):
+    if stripped in ("/quiet", "/verbose", "/debug"):
         old = console.verbosity
-        new = "quiet" if old == "normal" else "normal"
+        new = stripped[1:]  # "quiet", "verbose", or "debug"
         console.set_verbosity(new)
-        label = "Tool traces hidden." if new == "quiet" else "Tool traces visible."
-        console.system(f"Verbosity: {old} -> {new}. {label}")
+        labels = {
+            "quiet": "Tool traces hidden.",
+            "verbose": "Tool traces visible.",
+            "debug": "Debug logs enabled.",
+        }
+        console.system(f"Verbosity: {old} -> {new}. {labels[new]}")
         return None
     if stripped in ("/quit", "/exit"):
         return None
@@ -84,43 +117,39 @@ async def handle_input(session: Session, user_input: str) -> str | None:
 
 
 async def run_agent(session: Session) -> None:
-    """Consume agent.run() and print streamed text from llm_respond."""
+    """Consume agent.run() and render streamed text via console.response()."""
+    collected_text = ""
     async for turn, value in session.agent.run():
         if isinstance(value, str):
-            sys.stdout.write(value)
-            sys.stdout.flush()
+            collected_text += value
+    if collected_text:
+        console.response(collected_text)
 
 
 async def read_steering(session: Session, stop_event: asyncio.Event) -> None:
-    """Background task: read stdin and push messages into steering queue."""
-    loop = asyncio.get_event_loop()
+    """Background task: read from shared stdin reader and push into steering queue."""
     while not stop_event.is_set():
         try:
-            line = await asyncio.wait_for(
-                loop.run_in_executor(None, sys.stdin.readline),
-                timeout=0.5,
-            )
-            if not line:
-                break
-            text = line.rstrip("\n")
-            if text.strip():
-                await session.steering_queue.put(text)
+            line = await asyncio.wait_for(_stdin.readline(), timeout=0.5)
         except asyncio.TimeoutError:
             continue
-        except (EOFError, KeyboardInterrupt):
+        if line is None:
             break
+        if line.strip():
+            await session.steering_queue.put(line)
 
 
 async def main(cwd: str | None = None) -> None:
     session = Session()
     await session.start(cwd=cwd)
+    _stdin.start(asyncio.get_event_loop())
     console.system("coder ready. Type /help for commands, /quit to exit.\n")
 
     while True:
         try:
             sys.stdout.write(console.prompt())
             sys.stdout.flush()
-            user_input = await read_user_input()
+            user_input = await _stdin.readline()
             if user_input is None or user_input.strip() in ("/quit", "/exit"):
                 console.system("\nGoodbye.")
                 break

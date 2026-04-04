@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from rich.console import Console as RichConsole
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
 
@@ -63,18 +64,18 @@ class CoderConsole:
         else:
             self.theme = _detect_theme()
         self._console = RichConsole()
-        self.verbosity: str = "normal"
+        self.verbosity: str = "verbose"
         self._tool_names: list[str] = []
 
     def set_verbosity(self, level: str) -> None:
-        """Set verbosity level: 'quiet', 'normal', or 'verbose'."""
+        """Set verbosity level: 'quiet', 'verbose', or 'debug'."""
         self.verbosity = level
 
-    def response(self, text: str) -> None:
-        """Render LLM response inside a bordered panel."""
-        content = Text(text, style=self.theme.response_text)
+    def response(self, markdown_text: str) -> None:
+        """Render LLM response as markdown inside a bordered panel."""
+        md = Markdown(markdown_text)
         panel = Panel(
-            content,
+            md,
             border_style=self.theme.response_border,
             expand=True,
             padding=(0, 1),

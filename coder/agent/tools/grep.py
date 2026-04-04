@@ -52,6 +52,13 @@ async def tool_grep(
             output += f"\n\n[Output truncated at {MAX_BYTES // 1024}KB]"
         yield ContextItem(content={"role": "tool", "content": output})
     except FileNotFoundError:
-        yield ContextItem(content={"role": "tool", "content": "Error: 'rg' (ripgrep) is not installed."})
+        yield ContextItem(
+            content={
+                "role": "tool",
+                "content": "Error: 'rg' (ripgrep) is not installed.",
+            }
+        )
     except Exception as e:
-        yield ContextItem(content={"role": "tool", "content": f"Error running grep: {e}"})
+        yield ContextItem(
+            content={"role": "tool", "content": f"Error running grep: {e}"}
+        )

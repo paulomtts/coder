@@ -76,9 +76,7 @@ class Session:
                     content=append,
                 )
             )
-        self.agent = create_agent(
-            session=self, pool=self.pool, cq=self.cq
-        )
+        self.agent = create_agent(session=self, pool=self.pool, cq=self.cq)
 
     async def switch_role(self, persona_name: str) -> None:
         persona = get_persona(persona_name)
@@ -139,4 +137,3 @@ class Session:
         except KeyError:
             pass
         self._active_role = None
-
