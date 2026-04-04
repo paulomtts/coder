@@ -80,7 +80,7 @@ class Session:
                 )
             )
         self.agent = create_agent(
-            pool=self.pool, cq=self.cq, steering_queue=self.steering_queue
+            session=self, pool=self.pool, cq=self.cq
         )
 
     async def switch_role(self, persona_name: str) -> None:
