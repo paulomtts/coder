@@ -3,22 +3,97 @@ import asyncio
 
 from pygents import Agent, ContextItem, ContextPool, ContextQueue, Turn, tool
 from pygents.registry import ToolRegistry
-from py_ai_toolkit import PyAIToolkit
 
 from coder.agent.tools import ALL_TOOLS
 from coder.agent.compaction.summarizer import run_compaction, should_compact
-
-
-def _register_tools(tools: list) -> None:
-    for t in tools:
-        if ToolRegistry._registry.get(t.__name__) is None:
-            ToolRegistry.register(t)
+from coder.agent.llm.decide import AgentResponse, get_allowed_tools, get_compaction_summary
+from coder.agent.llm.prompt import build_system_prompt, build_messages, build_tool_schemas
 
 
 def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
     """Create the pygents agent with all tools, llm_decide, llm_respond, and hooks."""
-    from coder.agent.llm.decide import llm_decide
-    from coder.agent.llm.respond import llm_respond
+
+    @tool()
+    async def llm_decide(cq: ContextQueue, pool: ContextPool):
+        """Structured LLM call that decides: execute tools or respond to user."""
+        toolkit = session.toolkit
+        allowed_tools = get_allowed_tools(pool)
+        system_prompt = build_system_prompt(pool, allowed_tools)
+        compaction_summary = get_compaction_summary(pool)
+        messages_list = build_messages(cq, compaction_summary)
+        tool_schemas = build_tool_schemas(allowed_tools)
+
+        # Build conversation string from messages
+        conversation = _build_conversation(messages_list)
+
+        # Build tool reference string
+        tool_ref = "\n".join(
+            f"- {s['function']['name']}: {s['function'].get('description', '')}"
+            for s in tool_schemas
+        )
+
+        # Structured LLM call
+        response = await toolkit.asend(
+            response_model=AgentResponse,
+            template=(
+                "{{ system_prompt }}\n\n"
+                "## Available Tools\n{{ tool_ref }}\n\n"
+                "## Conversation\n{{ conversation }}"
+            ),
+            system_prompt=system_prompt,
+            tool_ref=tool_ref,
+            conversation=conversation,
+        )
+
+        agent_response = response.content
+
+        # Yield assistant message -> agent routes to cq
+        assistant_content = ""
+        if agent_response.text:
+            assistant_content = agent_response.text
+        if agent_response.tool_calls:
+            calls_desc = ", ".join(
+                f"{tc.name}({tc.arguments})" for tc in agent_response.tool_calls
+            )
+            assistant_content = (
+                f"{assistant_content}\nCalling: {calls_desc}" if assistant_content else f"Calling: {calls_desc}"
+            )
+        yield ContextItem(content={"role": "assistant", "content": assistant_content})
+
+        # Route next step
+        if agent_response.tool_calls:
+            for tc in agent_response.tool_calls:
+                # Re-prefix tool name if LLM returned stripped name
+                tool_name = f"tool_{tc.name}" if not tc.name.startswith("tool_") else tc.name
+                yield Turn(tool_name, kwargs=tc.arguments)
+            yield Turn(llm_decide)  # self-enqueue after all tools (FIFO)
+        else:
+            yield Turn(llm_respond)
+
+    @tool()
+    async def llm_respond(cq: ContextQueue, pool: ContextPool):
+        """Streaming LLM call that yields text chunks for the REPL to print."""
+        toolkit = session.toolkit
+        allowed_tools = get_allowed_tools(pool)
+        system_prompt = build_system_prompt(pool, allowed_tools)
+        compaction_summary = get_compaction_summary(pool)
+        messages_list = build_messages(cq, compaction_summary)
+
+        # Build conversation string from messages
+        conversation = _build_conversation(messages_list)
+
+        # Streaming LLM call (no tool schemas — text only)
+        full_text = ""
+        async for chunk in toolkit.stream(
+            template="{{ system_prompt }}\n\n## Conversation\n{{ conversation }}",
+            system_prompt=system_prompt,
+            conversation=conversation,
+        ):
+            full_text += chunk.content
+            yield chunk.content
+
+        # Yield full assistant message -> agent routes to cq
+        yield ContextItem(content={"role": "assistant", "content": full_text})
 
     all_tools = list(ALL_TOOLS) + [llm_decide, llm_respond]
     _register_tools(all_tools)
@@ -47,9 +122,8 @@ def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
 
     # Hook: compaction before llm_decide invocation
     @llm_decide.before_invoke
-    async def check_compaction(
-        cq: ContextQueue, pool: ContextPool, toolkit: PyAIToolkit
-    ) -> None:
+    async def check_compaction(cq: ContextQueue, pool: ContextPool) -> None:
+        toolkit = session.toolkit
         items = cq.items
         max_tokens = 128_000
         if not should_compact(items, session.config.compaction_threshold, max_tokens):
@@ -78,4 +152,27 @@ def create_agent(session, pool: ContextPool, cq: ContextQueue) -> Agent:
         for item in recent:
             await cq.append(item)
 
+    # Store references for external access (e.g., repl.py enqueues Turn(llm_decide))
+    session._llm_decide = llm_decide
+    session._llm_respond = llm_respond
+
     return agent
+
+
+def _build_conversation(messages: list[dict]) -> str:
+    """Build a conversation string from a list of message dicts."""
+    parts: list[str] = []
+    for msg in messages:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        if content:
+            parts.append(f"[{role}]: {content}")
+    return "\n\n".join(parts)
+
+
+def _register_tools(tools: list) -> None:
+    for t in tools:
+        try:
+            ToolRegistry.get(t.__name__)
+        except Exception:
+            ToolRegistry.register(t)

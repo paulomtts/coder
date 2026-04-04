@@ -116,8 +116,6 @@ async def main(cwd: str | None = None) -> None:
     await session.start(cwd=cwd)
     console.system("coder ready. Type /help for commands, /quit to exit.\n")
 
-    from coder.agent.llm.decide import llm_decide
-
     while True:
         try:
             sys.stdout.write(console.prompt())
@@ -135,7 +133,7 @@ async def main(cwd: str | None = None) -> None:
             await session.cq.append(
                 ContextItem(content={"role": "user", "content": message})
             )
-            await session.agent.put(Turn(llm_decide))
+            await session.agent.put(Turn(session._llm_decide))
 
             # Run agent + background steering reader concurrently
             stop_event = asyncio.Event()
