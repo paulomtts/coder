@@ -9,18 +9,18 @@ from coder.agent.llm.prompt import (
     build_messages,
     build_system_prompt,
     build_tool_schemas,
-    get_allowed_tools,
     get_compaction_summary,
 )
+from coder.agent.state import get_session
 from coder.shared.console import dbg
 
 
 @tool()
 async def llm_decide(cq: ContextQueue, pool: ContextPool):
     """Structured LLM call that decides: execute tools or respond to user."""
-    session = pool.get("session").content
+    session = get_session()
     toolkit = session.toolkit
-    allowed_tools = get_allowed_tools(pool)
+    allowed_tools = session._allowed_tools
     system_prompt = build_system_prompt(pool, allowed_tools)
     compaction_summary = get_compaction_summary(pool)
     messages_list = build_messages(cq, compaction_summary)

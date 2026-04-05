@@ -44,6 +44,5 @@ async def test_session_role_switching(tmp_path):
         "scout" in str(role.content).lower()
         or "investigate" in str(role.content).lower()
     )
-    allowed_tools_item = session.pool.get("allowed-tools")
-    assert allowed_tools_item is not None
-    assert "tool_write" not in allowed_tools_item.content
+    assert session._allowed_tools is not None
+    assert "tool_write" not in session._allowed_tools

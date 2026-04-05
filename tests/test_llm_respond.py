@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 from pygents import ContextItem, ContextPool, ContextQueue
 
 from coder.agent.loop import create_agent
+from coder.agent.state import set_session
 from coder.agent.tools.llm_respond import llm_respond
 
 
@@ -16,21 +17,18 @@ def session():
     s.config = MagicMock()
     s.config.compaction_threshold = 0.8
     s.config.keep_recent_tokens = 20000
+    s._allowed_tools = None
+    set_session(s)
     return s
 
 
 @pytest.fixture
-def pool(session):
+def pool():
     pool = ContextPool()
     pool._items["base-prompt"] = ContextItem(
         id="base-prompt",
         description="Base system prompt",
         content="You are a coding assistant.\n\nAvailable tools:\n{tools_list}\n\nGuidelines:\n{guidelines}",
-    )
-    pool._items["session"] = ContextItem(
-        id="session",
-        description="Session reference",
-        content=session,
     )
     return pool
 

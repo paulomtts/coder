@@ -4,6 +4,7 @@ import asyncio
 from pygents import Agent, ContextItem, ContextPool, ContextQueue, Turn
 
 from coder.agent.compaction.summarizer import run_compaction, should_compact
+from coder.agent.state import get_session
 
 
 INTERNAL_TOOLS = {"llm_decide", "llm_respond"}
@@ -14,7 +15,7 @@ async def inject_steering(agent: Agent) -> None:
     turn = agent._current_turn
     if turn is None or turn.tool.metadata.name != "llm_decide":
         return
-    session = agent.context_pool.get("session").content
+    session = get_session()
     while not session.steering_queue.empty():
         try:
             msg = session.steering_queue.get_nowait()
@@ -27,7 +28,7 @@ async def inject_steering(agent: Agent) -> None:
 
 async def check_compaction(cq: ContextQueue, pool: ContextPool) -> None:
     """Before-invoke hook on llm_decide: compact context if needed."""
-    session = pool.get("session").content
+    session = get_session()
     toolkit = session.toolkit
     items = cq.items
     max_tokens = 128_000

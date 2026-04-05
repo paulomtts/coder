@@ -50,8 +50,8 @@ def test_reviewer_no_write_tools():
 
 
 @pytest.mark.asyncio
-async def test_switch_role_stores_allowed_tools_in_pool():
-    """switch_role should store allowed_tools in the pool for llm_decide to read."""
+async def test_switch_role_stores_allowed_tools_on_session():
+    """switch_role should store allowed_tools on the session for llm_decide to read."""
     from unittest.mock import AsyncMock, MagicMock
     from coder.agent.session import Session
     from pygents import ContextPool, ContextQueue
@@ -64,7 +64,6 @@ async def test_switch_role_stores_allowed_tools_in_pool():
 
     await session.switch_role("scout")
 
-    item = session.pool.get("allowed-tools")
-    assert item is not None
-    assert "tool_read" in item.content
-    assert "tool_write" not in item.content  # scout can't write
+    assert session._allowed_tools is not None
+    assert "tool_read" in session._allowed_tools
+    assert "tool_write" not in session._allowed_tools  # scout can't write

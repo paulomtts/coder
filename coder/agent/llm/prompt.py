@@ -105,17 +105,6 @@ def build_messages(
     return messages
 
 
-def get_allowed_tools(pool: ContextPool) -> set[str] | None:
-    try:
-        item = pool.get("allowed-tools")
-        tools = item.content
-        if isinstance(tools, set):
-            return tools
-        return None
-    except KeyError:
-        return None
-
-
 def get_compaction_summary(pool: ContextPool) -> str | None:
     try:
         item = pool.get("compaction-summary")

@@ -38,6 +38,7 @@ class Session:
     config: SessionConfig = field(default_factory=SessionConfig)
     steering_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
     _active_role: str | None = None
+    _allowed_tools: set[str] | None = None
 
     async def start(self, cwd: str | None = None) -> None:
         self.config = load_config(cwd=cwd)
@@ -76,13 +77,9 @@ class Session:
                     content=append,
                 )
             )
-        await self.pool.add(
-            ContextItem(
-                id="session",
-                description="Session reference for tools and hooks",
-                content=self,
-            )
-        )
+        from coder.agent.state import set_session
+
+        set_session(self)
         self.agent = create_agent(pool=self.pool, cq=self.cq)
 
     async def switch_role(self, persona_name: str) -> None:
@@ -120,18 +117,7 @@ class Session:
                 content=persona.system_prompt,
             )
         )
-        # Store allowed_tools in pool for llm_decide to read
-        try:
-            await self.pool.remove("allowed-tools")
-        except KeyError:
-            pass
-        await self.pool.add(
-            ContextItem(
-                id="allowed-tools",
-                description=f"Tool filter for {persona.name} persona",
-                content=set(persona.allowed_tools),
-            )
-        )
+        self._allowed_tools = set(persona.allowed_tools)
         self._active_role = persona_name
 
     async def clear_role(self) -> None:
@@ -139,8 +125,5 @@ class Session:
             await self.pool.remove("active-role")
         except KeyError:
             pass
-        try:
-            await self.pool.remove("allowed-tools")
-        except KeyError:
-            pass
+        self._allowed_tools = None
         self._active_role = None
