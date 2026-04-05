@@ -24,7 +24,9 @@ async def llm_decide(cq: ContextQueue, pool: ContextPool):
     session = get_session()
 
     # Check if compaction is needed before calling the LLM
-    if should_compact(cq.items, session.config.compaction_threshold, MAX_CONTEXT_TOKENS):
+    if should_compact(
+        cq.items, session.config.compaction_threshold, MAX_CONTEXT_TOKENS
+    ):
         from coder.agent.tools.compact import compact
 
         dbg("DECIDE", "compaction needed, delegating to compact tool", "33")
@@ -107,9 +109,7 @@ async def llm_decide(cq: ContextQueue, pool: ContextPool):
             tool_name = (
                 f"tool_{tc.name}" if not tc.name.startswith("tool_") else tc.name
             )
-            dbg(
-                "DECIDE", f"yielding Turn({tool_name}, kwargs={tc.arguments})", "33"
-            )
+            dbg("DECIDE", f"yielding Turn({tool_name}, kwargs={tc.arguments})", "33")
             yield Turn(tool_name, kwargs=tc.arguments)
         dbg("DECIDE", "yielding Turn(llm_decide) for re-entry", "33")
         yield Turn(llm_decide)  # self-enqueue after all tools (FIFO)

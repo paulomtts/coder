@@ -14,9 +14,7 @@ from coder.shared.console import dbg
 @tool()
 async def llm_respond(cq: ContextQueue, pool: ContextPool):
     """Streaming LLM call that yields text chunks for the REPL to print."""
-    dbg(
-        "RESPOND", f"entering llm_respond, cq has {len(list(cq.items))} items", "35"
-    )
+    dbg("RESPOND", f"entering llm_respond, cq has {len(list(cq.items))} items", "35")
     session = get_session()
     toolkit = session.toolkit
     allowed_tools = session._allowed_tools

@@ -19,9 +19,7 @@ async def trace_tool(agent: Agent, turn: Turn) -> None:
                 result_preview = str(item.content.get("content", ""))
                 break
     display = (
-        result_preview[:200] + "..."
-        if len(result_preview) > 200
-        else result_preview
+        result_preview[:200] + "..." if len(result_preview) > 200 else result_preview
     )
     display = display.replace("\n", " ")
     context = (
