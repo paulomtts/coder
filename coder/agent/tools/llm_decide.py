@@ -3,6 +3,7 @@ import json
 
 from pygents import ContextItem, ContextPool, ContextQueue, Turn, tool
 
+from coder.agent.compaction.summarizer import should_compact
 from coder.agent.llm.decide import AgentResponse
 from coder.agent.llm.prompt import (
     build_conversation,
@@ -14,11 +15,23 @@ from coder.agent.llm.prompt import (
 from coder.agent.state import get_session
 from coder.shared.console import dbg
 
+MAX_CONTEXT_TOKENS = 128_000
+
 
 @tool()
 async def llm_decide(cq: ContextQueue, pool: ContextPool):
     """Structured LLM call that decides: execute tools or respond to user."""
     session = get_session()
+
+    # Check if compaction is needed before calling the LLM
+    if should_compact(cq.items, session.config.compaction_threshold, MAX_CONTEXT_TOKENS):
+        from coder.agent.tools.compact import compact
+
+        dbg("DECIDE", "compaction needed, delegating to compact tool", "33")
+        yield Turn(compact)
+        yield Turn(llm_decide)
+        return
+
     toolkit = session.toolkit
     allowed_tools = session._allowed_tools
     system_prompt = build_system_prompt(pool, allowed_tools)

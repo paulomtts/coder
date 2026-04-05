@@ -2,15 +2,16 @@
 from pygents import Agent, ContextPool, ContextQueue
 from pygents.registry import ToolRegistry
 
-from coder.agent.hooks import check_compaction, inject_steering, trace_tool
+from coder.agent.hooks import trace_tool
 from coder.agent.tools import ALL_TOOLS
+from coder.agent.tools.compact import compact
 from coder.agent.tools.llm_decide import llm_decide
 from coder.agent.tools.llm_respond import llm_respond
 
 
 def create_agent(pool: ContextPool, cq: ContextQueue) -> Agent:
     """Create the pygents agent with all tools and hooks."""
-    all_tools = list(ALL_TOOLS) + [llm_decide, llm_respond]
+    all_tools = list(ALL_TOOLS) + [llm_decide, llm_respond, compact]
 
     # Ensure tools are in the registry (needed after registry clears in tests)
     for t in all_tools:
@@ -27,8 +28,6 @@ def create_agent(pool: ContextPool, cq: ContextQueue) -> Agent:
         context_queue=cq,
     )
 
-    agent.before_turn(inject_steering)
     agent.after_turn(trace_tool)
-    llm_decide.before_invoke(check_compaction)
 
     return agent

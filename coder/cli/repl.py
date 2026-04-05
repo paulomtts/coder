@@ -130,7 +130,7 @@ async def run_agent(session: Session) -> None:
 
 
 async def read_steering(session: Session, stop_event: asyncio.Event) -> None:
-    """Background task: read from shared stdin reader and push into steering queue."""
+    """Background task: read from shared stdin reader and append to context queue."""
     while not stop_event.is_set():
         try:
             line = await asyncio.wait_for(_stdin.readline(), timeout=0.5)
@@ -139,7 +139,9 @@ async def read_steering(session: Session, stop_event: asyncio.Event) -> None:
         if line is None:
             break
         if line.strip():
-            await session.steering_queue.put(line)
+            await session.cq.append(
+                ContextItem(content={"role": "user", "content": line})
+            )
 
 
 async def main(cwd: str | None = None) -> None:

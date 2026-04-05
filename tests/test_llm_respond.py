@@ -1,5 +1,4 @@
 # tests/test_llm_respond.py
-import asyncio
 import pytest
 from unittest.mock import MagicMock
 from pygents import ContextItem, ContextPool, ContextQueue
@@ -13,7 +12,7 @@ from coder.agent.tools.llm_respond import llm_respond
 def session():
     s = MagicMock()
     s.toolkit = MagicMock()
-    s.steering_queue = asyncio.Queue()
+
     s.config = MagicMock()
     s.config.compaction_threshold = 0.8
     s.config.keep_recent_tokens = 20000

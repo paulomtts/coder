@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 
 from py_ai_toolkit import LLMConfig, PyAIToolkit
@@ -36,7 +35,6 @@ class Session:
     pool: ContextPool = field(default_factory=ContextPool)
     cq: ContextQueue = field(default_factory=lambda: ContextQueue(limit=50))
     config: SessionConfig = field(default_factory=SessionConfig)
-    steering_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
     _active_role: str | None = None
     _allowed_tools: set[str] | None = None
 
