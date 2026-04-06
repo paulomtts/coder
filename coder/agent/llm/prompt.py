@@ -90,6 +90,9 @@ def build_system_prompt(
     skills_item = _pool_get(pool, "skills-index")
     if skills_item and str(skills_item.content).strip():
         parts.append(str(skills_item.content))
+    memory_item = _pool_get(pool, "semantic-memory")
+    if memory_item and str(memory_item.content).strip():
+        parts.append(f"## What You Know\n{memory_item.content}")
     append_item = _pool_get(pool, "append-prompt")
     if append_item and str(append_item.content).strip():
         parts.append(str(append_item.content))
