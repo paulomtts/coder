@@ -1,20 +1,23 @@
 # tests/test_llm_respond.py
-import asyncio
 import pytest
 from unittest.mock import MagicMock
 from pygents import ContextItem, ContextPool, ContextQueue
 
 from coder.agent.loop import create_agent
+from coder.agent.state import set_session
+from coder.agent.tools.llm_respond import llm_respond
 
 
 @pytest.fixture
 def session():
     s = MagicMock()
     s.toolkit = MagicMock()
-    s.steering_queue = asyncio.Queue()
+
     s.config = MagicMock()
     s.config.compaction_threshold = 0.8
     s.config.keep_recent_tokens = 20000
+    s._allowed_tools = None
+    set_session(s)
     return s
 
 
@@ -49,9 +52,8 @@ async def _fake_stream(*args, **kwargs):
 async def test_llm_respond_yields_chunks_then_context_item(session, pool, cq):
     """llm_respond yields text chunks then a final ContextItem."""
     session.toolkit.stream = _fake_stream
-    create_agent(session=session, pool=pool, cq=cq)
+    create_agent(pool=pool, cq=cq)
 
-    llm_respond = session._llm_respond
     yielded = []
     async for value in llm_respond(cq=cq, pool=pool):
         yielded.append(value)

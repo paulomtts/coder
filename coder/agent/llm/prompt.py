@@ -1,5 +1,5 @@
 from typing import Any
-from pygents import ContextPool, ContextQueue
+from pygents import ContextItem, ContextPool, ContextQueue
 from pygents.registry import ToolRegistry
 
 LLM_VISIBLE_TOOLS = {
@@ -61,11 +61,19 @@ def _build_tools_list(allowed_tools: set[str] | None) -> str:
     return "\n".join(f"- {snippets[t]}" for t in sorted(tools) if t in snippets)
 
 
+def _pool_get(pool: ContextPool, key: str) -> ContextItem | None:
+    """Lookup a pool item by id, returning None if absent."""
+    try:
+        return pool.get(key)
+    except KeyError:
+        return None
+
+
 def build_system_prompt(
     pool: ContextPool, allowed_tools: set[str] | None, tools_list: str | None = None
 ) -> str:
     parts: list[str] = []
-    base_item = pool._items.get("base-prompt")
+    base_item = _pool_get(pool, "base-prompt")
     if base_item:
         base = str(base_item.content)
         tl = tools_list or _build_tools_list(allowed_tools)
@@ -73,16 +81,16 @@ def build_system_prompt(
         base = base.replace("{tools_list}", tl)
         base = base.replace("{guidelines}", guidelines)
         parts.append(base)
-    role_item = pool._items.get("active-role")
+    role_item = _pool_get(pool, "active-role")
     if role_item:
         parts.append(str(role_item.content))
-    ctx_item = pool._items.get("project-context")
+    ctx_item = _pool_get(pool, "project-context")
     if ctx_item and str(ctx_item.content).strip():
         parts.append(str(ctx_item.content))
-    skills_item = pool._items.get("skills-index")
+    skills_item = _pool_get(pool, "skills-index")
     if skills_item and str(skills_item.content).strip():
         parts.append(str(skills_item.content))
-    append_item = pool._items.get("append-prompt")
+    append_item = _pool_get(pool, "append-prompt")
     if append_item and str(append_item.content).strip():
         parts.append(str(append_item.content))
     return "\n\n".join(parts)
@@ -103,6 +111,25 @@ def build_messages(
         if isinstance(item.content, dict):
             messages.append(item.content)
     return messages
+
+
+def get_compaction_summary(pool: ContextPool) -> str | None:
+    try:
+        item = pool.get("compaction-summary")
+        return str(item.content)
+    except KeyError:
+        return None
+
+
+def build_conversation(messages: list[dict]) -> str:
+    """Build a conversation string from a list of message dicts."""
+    parts: list[str] = []
+    for msg in messages:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        if content:
+            parts.append(f"[{role}]: {content}")
+    return "\n\n".join(parts)
 
 
 def build_tool_schemas(allowed_tools: set[str] | None) -> list[dict[str, Any]]:

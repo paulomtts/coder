@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 
 from py_ai_toolkit import LLMConfig, PyAIToolkit
@@ -30,14 +29,35 @@ Guidelines:
 
 
 @dataclass
+class TokenStats:
+    """Tracks token usage across LLM calls."""
+
+    turn_prompt_tokens: int = 0
+    turn_completion_tokens: int = 0
+    total_prompt_tokens: int = 0
+    total_completion_tokens: int = 0
+
+    def reset_turn(self) -> None:
+        self.turn_prompt_tokens = 0
+        self.turn_completion_tokens = 0
+
+    def record(self, prompt_tokens: int, completion_tokens: int) -> None:
+        self.turn_prompt_tokens += prompt_tokens
+        self.turn_completion_tokens += completion_tokens
+        self.total_prompt_tokens += prompt_tokens
+        self.total_completion_tokens += completion_tokens
+
+
+@dataclass
 class Session:
     agent: Agent | None = None
     toolkit: PyAIToolkit | None = None
     pool: ContextPool = field(default_factory=ContextPool)
     cq: ContextQueue = field(default_factory=lambda: ContextQueue(limit=50))
     config: SessionConfig = field(default_factory=SessionConfig)
-    steering_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    token_stats: TokenStats = field(default_factory=TokenStats)
     _active_role: str | None = None
+    _allowed_tools: set[str] | None = None
 
     async def start(self, cwd: str | None = None) -> None:
         self.config = load_config(cwd=cwd)
@@ -76,7 +96,10 @@ class Session:
                     content=append,
                 )
             )
-        self.agent = create_agent(session=self, pool=self.pool, cq=self.cq)
+        from coder.agent.state import set_session
+
+        set_session(self)
+        self.agent = create_agent(pool=self.pool, cq=self.cq)
 
     async def switch_role(self, persona_name: str) -> None:
         persona = get_persona(persona_name)
@@ -113,18 +136,7 @@ class Session:
                 content=persona.system_prompt,
             )
         )
-        # Store allowed_tools in pool for llm_decide to read
-        try:
-            await self.pool.remove("allowed-tools")
-        except KeyError:
-            pass
-        await self.pool.add(
-            ContextItem(
-                id="allowed-tools",
-                description=f"Tool filter for {persona.name} persona",
-                content=set(persona.allowed_tools),
-            )
-        )
+        self._allowed_tools = set(persona.allowed_tools)
         self._active_role = persona_name
 
     async def clear_role(self) -> None:
@@ -132,8 +144,5 @@ class Session:
             await self.pool.remove("active-role")
         except KeyError:
             pass
-        try:
-            await self.pool.remove("allowed-tools")
-        except KeyError:
-            pass
+        self._allowed_tools = None
         self._active_role = None

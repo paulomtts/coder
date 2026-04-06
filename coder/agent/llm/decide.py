@@ -2,7 +2,6 @@
 from typing import Any
 
 from pydantic import BaseModel, Field
-from pygents import ContextPool
 
 
 class ToolCallRequest(BaseModel):
@@ -13,37 +12,13 @@ class ToolCallRequest(BaseModel):
 
 
 class AgentResponse(BaseModel):
-    """The LLM's response: either a text reply, or one or more tool calls.
+    """The LLM's decision: which tools to call next, if any.
 
-    IMPORTANT: Always prefer tool_calls over text when answering questions about
-    the codebase. Use tools to read, search, or inspect before responding.
-    Only use text alone for trivial follow-ups or when all needed context is
-    already in the conversation."""
+    This is a routing decision, not a user-facing response. If no tools are
+    needed, return an empty tool_calls list — a separate streaming call will
+    generate the actual response."""
 
-    text: str | None = Field(
-        None,
-        description="Final text response to the user. Only set this WITHOUT tool_calls when you already have all the information needed to answer. Do not use this to narrate intent — call tools instead.",
+    tool_calls: list[ToolCallRequest] = Field(
+        default_factory=list,
+        description="Tools to call. Leave empty when no tools are needed and the conversation can proceed to a direct response.",
     )
-    tool_calls: list[ToolCallRequest] | None = Field(
-        None,
-        description="Tools to call before responding. Always use this when you need to read files, search code, run commands, or verify anything in the codebase. You can set text alongside tool_calls for brief status notes.",
-    )
-
-
-def get_allowed_tools(pool: ContextPool) -> set[str] | None:
-    try:
-        item = pool.get("allowed-tools")
-        tools = item.content
-        if isinstance(tools, set):
-            return tools
-        return None
-    except KeyError:
-        return None
-
-
-def get_compaction_summary(pool: ContextPool) -> str | None:
-    try:
-        item = pool.get("compaction-summary")
-        return str(item.content)
-    except KeyError:
-        return None

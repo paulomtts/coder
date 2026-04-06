@@ -1,21 +1,24 @@
 # tests/test_llm_decide.py
-import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from pygents import ContextItem, ContextPool, ContextQueue, Turn
 
 from coder.agent.loop import create_agent
 from coder.agent.llm.decide import AgentResponse, ToolCallRequest
+from coder.agent.state import set_session
+from coder.agent.tools.llm_decide import llm_decide
 
 
 @pytest.fixture
 def session():
     s = MagicMock()
     s.toolkit = AsyncMock()
-    s.steering_queue = asyncio.Queue()
+
     s.config = MagicMock()
     s.config.compaction_threshold = 0.8
     s.config.keep_recent_tokens = 20000
+    s._allowed_tools = None
+    set_session(s)
     return s
 
 
@@ -38,23 +41,19 @@ def cq():
 
 
 @pytest.fixture
-def agent_and_session(session, pool, cq):
-    agent = create_agent(session=session, pool=pool, cq=cq)
-    return agent, session
+def agent(pool, cq):
+    return create_agent(pool=pool, cq=cq)
 
 
 @pytest.mark.asyncio
-async def test_llm_decide_yields_tool_turns(agent_and_session, pool, cq):
+async def test_llm_decide_yields_tool_turns(agent, session, pool, cq):
     """When LLM returns tool calls, llm_decide yields ContextItem + Turn per tool + Turn(llm_decide)."""
-    agent, session = agent_and_session
     mock_response = MagicMock()
     mock_response.content = AgentResponse(
-        text=None,
         tool_calls=[ToolCallRequest(name="read", arguments={"path": "foo.py"})],
     )
     session.toolkit.asend = AsyncMock(return_value=mock_response)
 
-    llm_decide = session._llm_decide
     yielded = []
     async for value in llm_decide(cq=cq, pool=pool):
         yielded.append(value)
@@ -73,36 +72,25 @@ async def test_llm_decide_yields_tool_turns(agent_and_session, pool, cq):
 
 
 @pytest.mark.asyncio
-async def test_llm_decide_yields_respond_turn_when_no_tools(
-    agent_and_session, pool, cq
-):
+async def test_llm_decide_yields_respond_turn_when_no_tools(agent, session, pool, cq):
     """When LLM returns text only, llm_decide yields ContextItem + Turn(llm_respond)."""
-    agent, session = agent_and_session
     mock_response = MagicMock()
-    mock_response.content = AgentResponse(
-        text="The file contains a greeting function.",
-        tool_calls=None,
-    )
+    mock_response.content = AgentResponse(tool_calls=[])
     session.toolkit.asend = AsyncMock(return_value=mock_response)
 
-    llm_decide = session._llm_decide
     yielded = []
     async for value in llm_decide(cq=cq, pool=pool):
         yielded.append(value)
 
-    assert isinstance(yielded[0], ContextItem)
-    assert yielded[0].content["role"] == "assistant"
-    assert isinstance(yielded[1], Turn)
-    assert yielded[1].tool.metadata.name == "llm_respond"
+    assert isinstance(yielded[0], Turn)
+    assert yielded[0].tool.metadata.name == "llm_respond"
 
 
 @pytest.mark.asyncio
-async def test_llm_decide_yields_multiple_tool_turns(agent_and_session, pool, cq):
+async def test_llm_decide_yields_multiple_tool_turns(agent, session, pool, cq):
     """When LLM returns multiple tool calls, llm_decide yields one Turn per tool + self-enqueue."""
-    agent, session = agent_and_session
     mock_response = MagicMock()
     mock_response.content = AgentResponse(
-        text=None,
         tool_calls=[
             ToolCallRequest(name="read", arguments={"path": "a.py"}),
             ToolCallRequest(name="read", arguments={"path": "b.py"}),
@@ -111,7 +99,6 @@ async def test_llm_decide_yields_multiple_tool_turns(agent_and_session, pool, cq
     )
     session.toolkit.asend = AsyncMock(return_value=mock_response)
 
-    llm_decide = session._llm_decide
     yielded = []
     async for value in llm_decide(cq=cq, pool=pool):
         yielded.append(value)
