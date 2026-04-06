@@ -70,9 +70,12 @@ async def extract_memories(agent: Agent, turn: Turn) -> None:
     turn_content = f"User: {user_content}\nAssistant: {assistant_content}"
     existing_memories = build_memory_index(base_dir=memory_dir)
 
-    facts = await extract_semantic_facts(
-        session.toolkit, turn_content, existing_memories, ""
-    )
+    try:
+        facts = await extract_semantic_facts(
+            session.toolkit, turn_content, existing_memories, ""
+        )
+    except Exception:
+        return
 
     if not facts:
         return

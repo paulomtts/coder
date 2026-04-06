@@ -67,11 +67,14 @@ async def _merge_group(
     for key, group in groups.items():
         entries_text = "\n\n---\n\n".join(f"### {e.topic}\n{e.content}" for e in group)
 
-        response = await toolkit.chat(
-            template=DECAY_PROMPT,
-            entries=entries_text,
-            system=DECAY_SYSTEM_PROMPT,
-        )
+        try:
+            response = await toolkit.chat(
+                template=DECAY_PROMPT,
+                entries=entries_text,
+                system=DECAY_SYSTEM_PROMPT,
+            )
+        except Exception:
+            continue
 
         write_entry(
             MemoryEntry(

@@ -57,7 +57,8 @@ def test_group_by_age_skips_already_decayed():
 
 @pytest.mark.asyncio
 async def test_run_decay_merges_weekly(tmp_path):
-    now = datetime.now(timezone.utc)
+    # Use a fixed Wednesday so all entries (10-12 days back) fall in the same ISO week
+    now = datetime(2026, 4, 15, 12, 0, 0, tzinfo=timezone.utc)
     for i in range(3):
         write_entry(
             MemoryEntry(
