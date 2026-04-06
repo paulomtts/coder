@@ -121,12 +121,25 @@ async def handle_input(session: Session, user_input: str) -> str | None:
 
 async def run_agent(session: Session) -> None:
     """Consume agent.run() and render streamed text via console.response()."""
+    from coder.agent.compaction.summarizer import estimate_tokens
+
     collected_text = ""
     async for turn, value in session.agent.run():
         if isinstance(value, str):
             collected_text += value
     if collected_text:
         console.response(collected_text)
+
+    # Show token usage stats
+    stats = session.token_stats
+    context_tokens = estimate_tokens(list(session.cq.items))
+    console.token_stats(
+        turn_prompt=stats.turn_prompt_tokens,
+        turn_completion=stats.turn_completion_tokens,
+        total_prompt=stats.total_prompt_tokens,
+        total_completion=stats.total_completion_tokens,
+        context_tokens=context_tokens,
+    )
 
 
 async def read_steering(session: Session, stop_event: asyncio.Event) -> None:
@@ -167,6 +180,7 @@ async def main(cwd: str | None = None) -> None:
             await session.cq.append(
                 ContextItem(content={"role": "user", "content": message})
             )
+            session.token_stats.reset_turn()
             await session.agent.put(Turn(llm_decide))
 
             # Run agent + background steering reader concurrently

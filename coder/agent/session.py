@@ -29,12 +29,33 @@ Guidelines:
 
 
 @dataclass
+class TokenStats:
+    """Tracks token usage across LLM calls."""
+
+    turn_prompt_tokens: int = 0
+    turn_completion_tokens: int = 0
+    total_prompt_tokens: int = 0
+    total_completion_tokens: int = 0
+
+    def reset_turn(self) -> None:
+        self.turn_prompt_tokens = 0
+        self.turn_completion_tokens = 0
+
+    def record(self, prompt_tokens: int, completion_tokens: int) -> None:
+        self.turn_prompt_tokens += prompt_tokens
+        self.turn_completion_tokens += completion_tokens
+        self.total_prompt_tokens += prompt_tokens
+        self.total_completion_tokens += completion_tokens
+
+
+@dataclass
 class Session:
     agent: Agent | None = None
     toolkit: PyAIToolkit | None = None
     pool: ContextPool = field(default_factory=ContextPool)
     cq: ContextQueue = field(default_factory=lambda: ContextQueue(limit=50))
     config: SessionConfig = field(default_factory=SessionConfig)
+    token_stats: TokenStats = field(default_factory=TokenStats)
     _active_role: str | None = None
     _allowed_tools: set[str] | None = None
 

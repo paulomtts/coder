@@ -76,34 +76,28 @@ async def llm_decide(cq: ContextQueue, pool: ContextPool):
 
     agent_response = response.content
 
-    dbg(
-        "DECIDE",
-        f"text = {agent_response.text!r}",
-        "32" if agent_response.tool_calls else "31",
-    )
+    # Record token usage
+    usage = getattr(response.completion, "usage", None)
+    if usage:
+        session.token_stats.record(
+            prompt_tokens=usage.prompt_tokens or 0,
+            completion_tokens=usage.completion_tokens or 0,
+        )
+
     dbg(
         "DECIDE",
         f"tool_calls = {agent_response.tool_calls}",
         "32" if agent_response.tool_calls else "31",
     )
 
-    # Yield assistant message -> agent routes to cq
-    assistant_content = ""
-    if agent_response.text:
-        assistant_content = agent_response.text
+    # Route next step
     if agent_response.tool_calls:
         calls_desc = ", ".join(
             f"{tc.name}({tc.arguments})" for tc in agent_response.tool_calls
         )
-        assistant_content = (
-            f"{assistant_content}\nCalling: {calls_desc}"
-            if assistant_content
-            else f"Calling: {calls_desc}"
+        yield ContextItem(
+            content={"role": "assistant", "content": f"Calling: {calls_desc}"}
         )
-    yield ContextItem(content={"role": "assistant", "content": assistant_content})
-
-    # Route next step
-    if agent_response.tool_calls:
         for tc in agent_response.tool_calls:
             # Re-prefix tool name if LLM returned stripped name
             tool_name = (

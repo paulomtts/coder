@@ -138,6 +138,31 @@ class CoderConsole:
         """Green-colored success confirmations."""
         self._console.print(message, style=self.theme.success, highlight=False)
 
+    def token_stats(
+        self,
+        turn_prompt: int,
+        turn_completion: int,
+        total_prompt: int,
+        total_completion: int,
+        context_tokens: int,
+    ) -> None:
+        """Display token usage stats after a response."""
+        turn_total = turn_prompt + turn_completion
+        session_total = total_prompt + total_completion
+        text = Text.assemble(
+            ("tokens: ", "dim"),
+            (f"{turn_total:,}", "dim bold"),
+            (" (", "dim"),
+            (f"↑{turn_prompt:,}", "dim"),
+            (" ↓", "dim"),
+            (f"{turn_completion:,}", "dim"),
+            (")  context: ", "dim"),
+            (f"~{context_tokens:,}", "dim bold"),
+            ("  session: ", "dim"),
+            (f"{session_total:,}", "dim bold"),
+        )
+        self._console.print(text)
+
     def prompt(self) -> str:
         """Returns the styled prompt string for input."""
         # Return ANSI-styled prompt string for use with sys.stdout.write

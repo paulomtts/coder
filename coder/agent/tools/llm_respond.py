@@ -26,13 +26,24 @@ async def llm_respond(cq: ContextQueue, pool: ContextPool):
 
     # Streaming LLM call (no tool schemas — text only)
     full_text = ""
+    last_chunk = None
     async for chunk in toolkit.stream(
         template="{{ system_prompt }}\n\n## Conversation\n{{ conversation }}",
         system_prompt=system_prompt,
         conversation=conversation,
     ):
         full_text += chunk.content
+        last_chunk = chunk
         yield chunk.content
+
+    # Record token usage from last chunk (if available)
+    if last_chunk:
+        usage = getattr(last_chunk.completion, "usage", None)
+        if usage:
+            session.token_stats.record(
+                prompt_tokens=usage.prompt_tokens or 0,
+                completion_tokens=usage.completion_tokens or 0,
+            )
 
     # Yield full assistant message -> agent routes to cq
     yield ContextItem(content={"role": "assistant", "content": full_text})
