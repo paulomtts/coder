@@ -29,9 +29,10 @@ def write_entry(entry: MemoryEntry, base_dir: str = DEFAULT_MEMORY_DIR) -> None:
 
     now = datetime.now(timezone.utc)
 
-    # Preserve original created timestamp if file exists
+    # Preserve original created timestamp if file exists;
+    # otherwise use entry.created if provided, else now
     existing = read_entry(entry.type, entry.topic, base_dir)
-    created = existing.created if existing else now
+    created = existing.created if existing else (entry.created or now)
     updated = now
 
     frontmatter = {
