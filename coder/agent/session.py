@@ -4,6 +4,7 @@ from py_ai_toolkit import LLMConfig, PyAIToolkit
 from pygents import Agent, ContextItem, ContextPool, ContextQueue
 
 from coder.agent.loop import create_agent
+from coder.agent.memory.store import build_memory_index
 from coder.agent.compaction.prompts import (
     BRANCH_SUMMARY_PREAMBLE,
     BRANCH_SUMMARY_PROMPT,
@@ -25,7 +26,13 @@ Available tools:
 In addition to the tools above, you may have access to other custom tools depending on the project.
 
 Guidelines:
-{guidelines}"""
+{guidelines}
+
+You have persistent memory stored in ~/.coder/memory/.
+- Semantic memories (facts, preferences, conventions) are loaded above under "What You Know".
+- Episodic memories (past session summaries) exist on disk. The user can search them with /recall.
+- You do not need to manage memory explicitly — it is handled automatically.
+- If the user says /remember or /forget, acknowledge the action."""
 
 
 @dataclass
@@ -96,10 +103,26 @@ class Session:
                     content=append,
                 )
             )
+        # Load semantic memory into context pool
+        memory_index = build_memory_index(base_dir=self.config.memory_dir)
+        if memory_index:
+            await self.pool.add(
+                ContextItem(
+                    id="semantic-memory",
+                    description="Persistent semantic memory",
+                    content=memory_index,
+                )
+            )
         from coder.agent.state import set_session
 
         set_session(self)
         self.agent = create_agent(pool=self.pool, cq=self.cq)
+
+        # Run episodic memory decay
+        if self.toolkit:
+            from coder.agent.memory.decay import run_decay
+
+            await run_decay(self.toolkit, base_dir=self.config.memory_dir)
 
     async def switch_role(self, persona_name: str) -> None:
         persona = get_persona(persona_name)

@@ -2,7 +2,7 @@
 from pygents import Agent, ContextPool, ContextQueue
 from pygents.registry import ToolRegistry
 
-from coder.agent.hooks import trace_tool
+from coder.agent.hooks import extract_memories, trace_tool
 from coder.agent.tools import ALL_TOOLS
 from coder.agent.tools.compact import compact
 from coder.agent.tools.llm_decide import llm_decide
@@ -29,5 +29,6 @@ def create_agent(pool: ContextPool, cq: ContextQueue) -> Agent:
     )
 
     agent.after_turn(trace_tool)
+    agent.after_turn(extract_memories)
 
     return agent

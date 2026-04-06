@@ -6,6 +6,11 @@ import threading
 from pygents import ContextItem, Turn
 from coder.agent.tools.llm_decide import llm_decide
 from coder.cli.commands import is_slash_command, list_slash_commands, load_slash_command
+from coder.agent.memory.store import (
+    delete_entry,
+    list_entries,
+    build_memory_index,
+)
 from coder.agent.session import Session
 from coder.shared.console import console
 
@@ -48,7 +53,19 @@ class _StdinReader:
 _stdin = _StdinReader()
 
 
-BUILTIN_COMMANDS = {"/help", "/role", "/quit", "/exit", "/quiet", "/verbose", "/debug"}
+BUILTIN_COMMANDS = {
+    "/help",
+    "/role",
+    "/quit",
+    "/exit",
+    "/quiet",
+    "/verbose",
+    "/debug",
+    "/remember",
+    "/forget",
+    "/memories",
+    "/recall",
+}
 
 
 async def handle_input(session: Session, user_input: str) -> str | None:
@@ -71,6 +88,11 @@ async def handle_input(session: Session, user_input: str) -> str | None:
             "  /debug         - Show debug logs (LLM calls, routing, context)"
         )
         console.system("  /quit          - Exit")
+        console.system("\nMemory commands:")
+        console.system("  /remember <text>  - Save a fact to semantic memory")
+        console.system("  /forget <topic>   - Delete a semantic memory entry")
+        console.system("  /memories         - List all semantic memories")
+        console.system("  /recall <query>   - Search episodic memories")
         if commands:
             console.system("\nSlash commands:")
             for cmd in commands:
@@ -102,6 +124,78 @@ async def handle_input(session: Session, user_input: str) -> str | None:
         }
         console.system(f"Verbosity: {old} -> {new}. {labels[new]}")
         return None
+    if cmd_word == "/remember":
+        parts = user_input.strip().split(None, 1)
+        if len(parts) < 2:
+            console.error("Usage: /remember <text>")
+            return None
+        text = parts[1]
+        return f"The user explicitly asked to remember the following. Extract it as a semantic memory fact and acknowledge:\n{text}"
+
+    if cmd_word == "/forget":
+        parts = user_input.strip().split(None, 1)
+        if len(parts) < 2:
+            console.error("Usage: /forget <topic>")
+            return None
+        topic = parts[1].strip()
+        deleted = delete_entry("semantic", topic, base_dir=session.config.memory_dir)
+        if deleted:
+            # Update pool
+            updated_index = build_memory_index(base_dir=session.config.memory_dir)
+            try:
+                await session.pool.remove("semantic-memory")
+            except KeyError:
+                pass
+            if updated_index:
+                await session.pool.add(
+                    ContextItem(
+                        id="semantic-memory",
+                        description="Persistent semantic memory",
+                        content=updated_index,
+                    )
+                )
+            console.success(f"Forgot: {topic}")
+        else:
+            console.error(f"No memory found for topic: {topic}")
+        return None
+
+    if stripped == "/memories":
+        entries = list_entries("semantic", base_dir=session.config.memory_dir)
+        if not entries:
+            console.system("No semantic memories stored.")
+        else:
+            console.system(f"Semantic memories ({len(entries)}):")
+            for entry in entries:
+                updated = entry.updated.strftime("%Y-%m-%d") if entry.updated else "?"
+                console.system(f"  {entry.topic} (updated: {updated})")
+                first_line = entry.content.split("\n")[0][:80]
+                console.system(f"    {first_line}")
+        return None
+
+    if cmd_word == "/recall":
+        parts = user_input.strip().split(None, 1)
+        if len(parts) < 2:
+            console.error("Usage: /recall <query>")
+            return None
+        query = parts[1].strip().lower()
+        entries = list_entries("episodic", base_dir=session.config.memory_dir)
+        matches = [
+            e for e in entries if query in e.content.lower() or query in e.topic.lower()
+        ]
+        if not matches:
+            console.system(f"No episodic memories matching: {query}")
+        else:
+            console.system(f"Found {len(matches)} episodic memories:")
+            for entry in matches:
+                date = (
+                    entry.created.strftime("%Y-%m-%d %H:%M")
+                    if entry.created
+                    else entry.topic
+                )
+                console.system(f"\n--- {date} ---")
+                console.system(entry.content[:500])
+        return None
+
     if stripped in ("/quit", "/exit"):
         return None
     if is_slash_command(user_input):

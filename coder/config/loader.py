@@ -21,6 +21,7 @@ class SessionConfig:
     compaction_threshold: float = DEFAULT_COMPACTION_THRESHOLD
     keep_recent_tokens: int = DEFAULT_KEEP_RECENT_TOKENS
     cwd: str = field(default_factory=os.getcwd)
+    memory_dir: str = os.path.expanduser("~/.coder/memory")
 
     @classmethod
     def from_env(cls) -> "SessionConfig":
