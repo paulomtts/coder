@@ -1,6 +1,3 @@
-import os
-from datetime import datetime, timezone
-
 from coder.agent.memory.store import (
     MemoryEntry,
     read_entry,
@@ -88,7 +85,9 @@ def test_delete_nonexistent(tmp_path):
 def test_list_entries(tmp_path):
     for i in range(3):
         write_entry(
-            MemoryEntry(type="semantic", topic=f"topic-{i}", content=f"Fact {i}", tags=[]),
+            MemoryEntry(
+                type="semantic", topic=f"topic-{i}", content=f"Fact {i}", tags=[]
+            ),
             base_dir=str(tmp_path),
         )
     entries = list_entries("semantic", base_dir=str(tmp_path))
@@ -104,11 +103,15 @@ def test_list_entries_empty(tmp_path):
 
 def test_build_memory_index(tmp_path):
     write_entry(
-        MemoryEntry(type="semantic", topic="prefs", content="Likes Python.", tags=["lang"]),
+        MemoryEntry(
+            type="semantic", topic="prefs", content="Likes Python.", tags=["lang"]
+        ),
         base_dir=str(tmp_path),
     )
     write_entry(
-        MemoryEntry(type="semantic", topic="tools", content="Uses pytest.", tags=["testing"]),
+        MemoryEntry(
+            type="semantic", topic="tools", content="Uses pytest.", tags=["testing"]
+        ),
         base_dir=str(tmp_path),
     )
     index = build_memory_index(base_dir=str(tmp_path))
