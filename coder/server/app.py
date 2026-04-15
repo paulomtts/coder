@@ -137,6 +137,10 @@ def create_app(base_dir: str | Path | None = None) -> FastAPI:
     app.state.store = store
     app.state.hub = hub
 
+    @app.get("/health")
+    async def health() -> dict[str, bool]:
+        return {"ok": True}
+
     @app.post("/sessions", response_model=SessionRecord)
     async def create_session(payload: SessionCreateRequest | None = None) -> SessionRecord:
         cwd = payload.cwd if payload else None

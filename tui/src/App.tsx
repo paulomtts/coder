@@ -1,9 +1,9 @@
 import { Box, Text, useApp, useInput } from "ink";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { cancelSession, connectSessionStream, createSession, sendMessage } from "./api";
 import { applyEvent, createInitialState } from "./reducer";
-import type { StreamEvent } from "./protocol";
+import { startManagedSession } from "./bootstrap";
+import type { ApiClient } from "./api";
 
 export function App() {
   const { exit } = useApp();
@@ -11,25 +11,34 @@ export function App() {
   const [draft, setDraft] = useState("");
   const [isBooting, setIsBooting] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const apiRef = useRef<ApiClient | null>(null);
 
   useEffect(() => {
-    let unsubscribe = () => {};
     let cancelled = false;
+    let shutdown = async () => {};
 
     (async () => {
       try {
-        const session = await createSession();
-        if (cancelled) return;
+        const handle = await startManagedSession({
+          onEvent: (event) => {
+            setState((current) => applyEvent(current, event));
+          },
+        });
+
+        if (cancelled) {
+          await handle.shutdown();
+          return;
+        }
+
+        apiRef.current = handle.api;
+        shutdown = handle.shutdown;
         setState((current) =>
           applyEvent(current, {
             kind: "session.created",
-            session_id: session.session_id,
-            data: { session_id: session.session_id },
+            session_id: handle.session.session_id,
+            data: { session_id: handle.session.session_id },
           }),
         );
-        unsubscribe = connectSessionStream(session.session_id, (event) => {
-          setState((current) => applyEvent(current, event));
-        });
       } catch (error) {
         if (!cancelled) {
           setState((current) =>
@@ -41,13 +50,15 @@ export function App() {
           );
         }
       } finally {
-        if (!cancelled) setIsBooting(false);
+        if (!cancelled) {
+          setIsBooting(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
-      unsubscribe();
+      void shutdown();
     };
   }, []);
 
@@ -57,32 +68,30 @@ export function App() {
       return;
     }
 
+    if (!state.sessionId) return;
+
     if (key.ctrl && input === "k") {
-      if (state.sessionId) {
-        try {
-          await cancelSession(state.sessionId);
-        } catch (error) {
-          setState((current) =>
-            applyEvent(current, {
-              kind: "session.error",
-              session_id: state.sessionId!,
-              data: { error: error instanceof Error ? error.message : String(error) },
-            }),
-          );
-        }
+      try {
+        await apiRef.current?.cancelSession(state.sessionId);
+      } catch (error) {
+        setState((current) =>
+          applyEvent(current, {
+            kind: "session.error",
+            session_id: state.sessionId!,
+            data: { error: error instanceof Error ? error.message : String(error) },
+          }),
+        );
       }
       return;
     }
 
-    if (!state.sessionId) return;
-
     if (key.return) {
       const text = draft.trim();
-      if (!text) return;
+      if (!text || !apiRef.current) return;
       setDraft("");
       setIsSending(true);
       try {
-        await sendMessage(state.sessionId, text);
+        await apiRef.current.sendMessage(state.sessionId, text);
       } catch (error) {
         setState((current) =>
           applyEvent(current, {
@@ -111,7 +120,11 @@ export function App() {
     <Box flexDirection="column">
       <Text color="cyan">Coder TUI</Text>
       <Text>Session: {state.sessionId ?? "starting..."}</Text>
-      <Text>Status: {state.status}{isBooting ? " (booting)" : ""}{isSending ? " (sending)" : ""}</Text>
+      <Text>
+        Status: {state.status}
+        {isBooting ? " (booting)" : ""}
+        {isSending ? " (sending)" : ""}
+      </Text>
       {state.error ? <Text color="red">Error: {state.error}</Text> : null}
       <Box flexDirection="column" marginTop={1}>
         {state.transcript.map((message, index) => (

@@ -53,7 +53,7 @@ uv run python main.py
 uv run uvicorn coder.server.app:create_app --factory --reload
 ```
 
-By default the service listens on `http://127.0.0.1:8000` and stores sessions on disk.
+By default the service listens on `http://127.0.0.1:8000` and stores sessions on disk. For TUI-managed startup, the app also exposes `coder.server.main:app` as a stable uvicorn target.
 
 ### Bun TUI
 
@@ -63,7 +63,7 @@ bun install
 bun run dev
 ```
 
-The TUI talks to the FastAPI service over HTTP + WebSocket streaming. Set `CODER_API_URL` if the API is not on the default local address.
+The TUI talks to the FastAPI service over HTTP + WebSocket streaming. If no server is already running at `CODER_API_URL` (or the default local address), the TUI will start one as a subprocess and shut it down when it exits.
 
 ## Testing
 
