@@ -1,3 +1,5 @@
+import path from "node:path";
+
 const DEFAULT_BASE_URL = process.env.CODER_API_URL ?? "http://127.0.0.1:8000";
 const DEFAULT_COMMAND = [
   "uv",
@@ -40,6 +42,8 @@ export type ServerManagerOptions = {
   pollIntervalMs?: number;
 };
 
+const REPO_ROOT = path.resolve(import.meta.dir, "../..");
+
 const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function isHealthy(baseUrl: string, fetchFn: FetchFn): Promise<boolean> {
@@ -56,6 +60,7 @@ async function isHealthy(baseUrl: string, fetchFn: FetchFn): Promise<boolean> {
 function defaultSpawn(command: string[]): ManagedProcess {
   const process = Bun.spawn({
     cmd: command,
+    cwd: REPO_ROOT,
     stdout: "inherit",
     stderr: "inherit",
     stdin: "inherit",
