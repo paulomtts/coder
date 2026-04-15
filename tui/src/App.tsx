@@ -1,29 +1,34 @@
-import { Box, Text, useApp, useInput } from "ink";
+import { Box, Text, useApp } from "ink";
 import { useEffect, useRef, useState } from "react";
 
 import type { ApiClient } from "./api";
 import { startManagedSession } from "./bootstrap";
+import { parseLineAction } from "./input";
 import { applyEvent, createInitialState } from "./reducer";
 import {
   computeViewport,
   createViewportState,
-  handleViewportKey,
+  jumpToLatest,
+  jumpToOldest,
+  scrollDown,
+  scrollUp,
 } from "./viewport";
 import {
   formatStatusLabel,
   formatViewportLabel,
-  renderInputLine,
   visibleTranscript,
 } from "./view";
 
 export function App() {
   const { exit } = useApp();
   const [state, setState] = useState(createInitialState());
-  const [draft, setDraft] = useState("");
   const [isBooting, setIsBooting] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [viewport, setViewport] = useState(createViewportState());
   const apiRef = useRef<ApiClient | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const transcriptLengthRef = useRef(0);
+  const viewportRef = useRef(viewport);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +79,12 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    sessionIdRef.current = state.sessionId;
+    transcriptLengthRef.current = state.transcript.length;
+    viewportRef.current = viewport;
+  }, [state.sessionId, state.transcript.length, viewport]);
+
   const transcriptViewport = computeViewport({
     transcriptLength: state.transcript.length,
     viewportHeight: 14,
@@ -85,66 +96,87 @@ export function App() {
     transcriptViewport.endIndex,
   );
 
-  useInput(async (input, key) => {
-    if (key.escape || (key.ctrl && input === "c")) {
-      exit();
-      return;
-    }
+  useEffect(() => {
+    let cancelled = false;
+    const decoder = new TextDecoder();
+    const reader = Bun.stdin.stream().getReader();
+    let buffer = "";
 
-    if (key.pageUp || key.pageDown || key.upArrow || key.downArrow) {
-      setViewport((current) =>
-        handleViewportKey(current, key, state.transcript.length, 14),
-      );
-      return;
-    }
+    (async () => {
+      while (!cancelled) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-    if (!state.sessionId) return;
+        let newlineIndex = buffer.indexOf("\n");
+        while (newlineIndex !== -1) {
+          const rawLine = buffer.slice(0, newlineIndex).replace(/\r$/, "");
+          buffer = buffer.slice(newlineIndex + 1);
+          const action = parseLineAction(rawLine);
+          const sessionId = sessionIdRef.current;
+          const transcriptLength = transcriptLengthRef.current;
 
-    if (key.ctrl && input === "k") {
-      try {
-        await apiRef.current?.cancelSession(state.sessionId);
-      } catch (error) {
-        setState((current) =>
-          applyEvent(current, {
-            kind: "session.error",
-            session_id: state.sessionId!,
-            data: { error: error instanceof Error ? error.message : String(error) },
-          }),
-        );
+          if (action.type === "quit") {
+            exit();
+            return;
+          }
+
+          if (action.type === "cancel") {
+            if (sessionId) {
+              try {
+                await apiRef.current?.cancelSession(sessionId);
+              } catch (error) {
+                setState((current) =>
+                  applyEvent(current, {
+                    kind: "session.error",
+                    session_id: sessionId,
+                    data: { error: error instanceof Error ? error.message : String(error) },
+                  }),
+                );
+              }
+            }
+            newlineIndex = buffer.indexOf("\n");
+            continue;
+          }
+
+          if (action.type === "scroll-up") {
+            setViewport((current) => scrollUp(current, transcriptLength, 14));
+          } else if (action.type === "scroll-down") {
+            setViewport((current) => scrollDown(current, transcriptLength, 14));
+          } else if (action.type === "scroll-home") {
+            setViewport(jumpToOldest(transcriptLength, 14));
+          } else if (action.type === "scroll-end") {
+            setViewport(jumpToLatest());
+          } else if (action.type === "message") {
+            const text = action.text.trim();
+            if (text && apiRef.current && sessionId) {
+              setIsSending(true);
+              try {
+                await apiRef.current.sendMessage(sessionId, text);
+              } catch (error) {
+                setState((current) =>
+                  applyEvent(current, {
+                    kind: "session.error",
+                    session_id: sessionId,
+                    data: { error: error instanceof Error ? error.message : String(error) },
+                  }),
+                );
+              } finally {
+                setIsSending(false);
+              }
+            }
+          }
+
+          newlineIndex = buffer.indexOf("\n");
+        }
       }
-      return;
-    }
+    })();
 
-    if (key.return) {
-      const text = draft.trim();
-      if (!text || !apiRef.current) return;
-      setDraft("");
-      setIsSending(true);
-      try {
-        await apiRef.current.sendMessage(state.sessionId, text);
-      } catch (error) {
-        setState((current) =>
-          applyEvent(current, {
-            kind: "session.error",
-            session_id: state.sessionId!,
-            data: { error: error instanceof Error ? error.message : String(error) },
-          }),
-        );
-      } finally {
-        setIsSending(false);
-      }
-      return;
-    }
-
-    if (key.backspace || key.delete) {
-      setDraft((current) => current.slice(0, -1));
-      return;
-    }
-
-    if (input && !key.ctrl && !key.meta) {
-      setDraft((current) => current + input);
-    }
-  });
+    return () => {
+      cancelled = true;
+      reader.cancel().catch(() => undefined);
+    };
+  }, [exit]);
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0}>
@@ -197,12 +229,12 @@ export function App() {
       </Box>
 
       <Box marginTop={1} borderStyle="round" borderColor="blue" paddingX={1}>
-        <Text color="gray">{renderInputLine(draft, true)}</Text>
+        <Text color="gray">&gt; Type a message and press Enter</Text>
       </Box>
 
       <Box marginTop={1} justifyContent="space-between">
-        <Text dimColor>Esc / Ctrl-C to quit</Text>
-        <Text dimColor>Arrows/PageUp/PageDown to scroll</Text>
+        <Text dimColor>/quit to exit</Text>
+        <Text dimColor>/up /down /home /end to scroll</Text>
       </Box>
     </Box>
   );
