@@ -1,9 +1,10 @@
 import { Box, Text, useApp, useInput } from "ink";
 import { useEffect, useRef, useState } from "react";
 
-import { applyEvent, createInitialState } from "./reducer";
-import { startManagedSession } from "./bootstrap";
 import type { ApiClient } from "./api";
+import { startManagedSession } from "./bootstrap";
+import { applyEvent, createInitialState } from "./reducer";
+import { formatStatusLabel, renderInputLine, visibleTranscript } from "./view";
 
 export function App() {
   const { exit } = useApp();
@@ -116,34 +117,51 @@ export function App() {
     }
   });
 
+  const transcript = visibleTranscript(state.transcript, 14);
+
   return (
-    <Box flexDirection="column">
-      <Text color="cyan">Coder TUI</Text>
-      <Text>Session: {state.sessionId ?? "starting..."}</Text>
-      <Text>
-        Status: {state.status}
-        {isBooting ? " (booting)" : ""}
-        {isSending ? " (sending)" : ""}
+    <Box flexDirection="column" paddingX={1} paddingY={0}>
+      <Box justifyContent="space-between">
+        <Text color="cyan" bold>
+          Coder TUI
+        </Text>
+        <Text dimColor>{state.sessionId ?? "starting..."}</Text>
+      </Box>
+
+      <Text color={state.error ? "red" : "white"}>
+        {formatStatusLabel(state.status, isBooting, isSending)}
       </Text>
       {state.error ? <Text color="red">Error: {state.error}</Text> : null}
-      <Box flexDirection="column" marginTop={1}>
-        {state.transcript.map((message, index) => (
-          <Text key={`${index}-${message.role}`}>
-            <Text color={message.role === "user" ? "green" : "magenta"}>
-              {message.role}: 
-            </Text>
-            {message.content}
-          </Text>
-        ))}
+
+      <Box
+        flexDirection="column"
+        borderStyle="round"
+        borderColor="gray"
+        paddingX={1}
+        marginTop={1}
+        flexGrow={1}
+      >
+        {transcript.length === 0 ? (
+          <Text dimColor>Waiting for the first message...</Text>
+        ) : (
+          transcript.map((message, index) => (
+            <Box key={`${index}-${message.role}`} marginBottom={1} flexDirection="column">
+              <Text color={message.role === "user" ? "green" : "magenta"}>
+                {message.role}
+              </Text>
+              <Text>{message.content}</Text>
+            </Box>
+          ))
+        )}
       </Box>
-      <Box marginTop={1}>
-        <Text color="gray">{draft || "Type a message and press Enter"}</Text>
+
+      <Box marginTop={1} borderStyle="round" borderColor="blue" paddingX={1}>
+        <Text color="gray">{renderInputLine(draft, true)}</Text>
       </Box>
-      <Box marginTop={1}>
-        <Text dimColor>Press Esc or Ctrl-C to quit</Text>
-      </Box>
-      <Box marginTop={1}>
-        <Text dimColor>Cancel the active run with Ctrl-K</Text>
+
+      <Box marginTop={1} justifyContent="space-between">
+        <Text dimColor>Esc / Ctrl-C to quit</Text>
+        <Text dimColor>Ctrl-K to cancel</Text>
       </Box>
     </Box>
   );
