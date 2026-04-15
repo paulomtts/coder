@@ -4,7 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import type { ApiClient } from "./api";
 import { startManagedSession } from "./bootstrap";
 import { applyEvent, createInitialState } from "./reducer";
-import { formatStatusLabel, renderInputLine, visibleTranscript } from "./view";
+import {
+  computeViewport,
+  createViewportState,
+  handleViewportKey,
+} from "./viewport";
+import {
+  formatStatusLabel,
+  formatViewportLabel,
+  renderInputLine,
+  visibleTranscript,
+} from "./view";
 
 export function App() {
   const { exit } = useApp();
@@ -12,6 +22,7 @@ export function App() {
   const [draft, setDraft] = useState("");
   const [isBooting, setIsBooting] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [viewport, setViewport] = useState(createViewportState());
   const apiRef = useRef<ApiClient | null>(null);
 
   useEffect(() => {
@@ -63,9 +74,27 @@ export function App() {
     };
   }, []);
 
+  const transcriptViewport = computeViewport({
+    transcriptLength: state.transcript.length,
+    viewportHeight: 14,
+    state: viewport,
+  });
+  const transcript = visibleTranscript(
+    state.transcript,
+    transcriptViewport.startIndex,
+    transcriptViewport.endIndex,
+  );
+
   useInput(async (input, key) => {
     if (key.escape || (key.ctrl && input === "c")) {
       exit();
+      return;
+    }
+
+    if (key.pageUp || key.pageDown || key.upArrow || key.downArrow) {
+      setViewport((current) =>
+        handleViewportKey(current, key, state.transcript.length, 14),
+      );
       return;
     }
 
@@ -117,8 +146,6 @@ export function App() {
     }
   });
 
-  const transcript = visibleTranscript(state.transcript, 14);
-
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0}>
       <Box justifyContent="space-between">
@@ -130,6 +157,8 @@ export function App() {
 
       <Text color={state.error ? "red" : "white"}>
         {formatStatusLabel(state.status, isBooting, isSending)}
+        {" · "}
+        {formatViewportLabel(transcriptViewport.followLatest)}
       </Text>
       {state.error ? <Text color="red">Error: {state.error}</Text> : null}
 
@@ -141,6 +170,18 @@ export function App() {
         marginTop={1}
         flexGrow={1}
       >
+        <Box justifyContent="space-between">
+          <Text dimColor>
+            {state.transcript.length === 0
+              ? "Waiting for the first message..."
+              : `Messages ${transcriptViewport.startIndex + 1}-${transcriptViewport.endIndex} of ${state.transcript.length}`}
+          </Text>
+          {!transcriptViewport.followLatest ? (
+            <Text dimColor>
+              scroll {transcriptViewport.scrollOffset}
+            </Text>
+          ) : null}
+        </Box>
         {transcript.length === 0 ? (
           <Text dimColor>Waiting for the first message...</Text>
         ) : (
@@ -161,7 +202,7 @@ export function App() {
 
       <Box marginTop={1} justifyContent="space-between">
         <Text dimColor>Esc / Ctrl-C to quit</Text>
-        <Text dimColor>Ctrl-K to cancel</Text>
+        <Text dimColor>Arrows/PageUp/PageDown to scroll</Text>
       </Box>
     </Box>
   );
