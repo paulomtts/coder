@@ -1,4 +1,6 @@
 # coder/agent/loop.py
+from collections.abc import Awaitable, Callable
+
 from pygents import Agent, ContextPool, ContextQueue
 from pygents.registry import ToolRegistry
 
@@ -8,8 +10,14 @@ from coder.agent.tools.compact import compact
 from coder.agent.tools.llm_decide import llm_decide
 from coder.agent.tools.llm_respond import llm_respond
 
+AgentHook = Callable[[Agent, object], Awaitable[None]]
 
-def create_agent(pool: ContextPool, cq: ContextQueue) -> Agent:
+
+def create_agent(
+    pool: ContextPool,
+    cq: ContextQueue,
+    after_turn_hooks: list[AgentHook] | None = None,
+) -> Agent:
     """Create the pygents agent with all tools and hooks."""
     all_tools = list(ALL_TOOLS) + [llm_decide, llm_respond, compact]
 
@@ -30,5 +38,8 @@ def create_agent(pool: ContextPool, cq: ContextQueue) -> Agent:
 
     agent.after_turn(trace_tool)
     agent.after_turn(extract_memories)
+
+    for hook in after_turn_hooks or []:
+        agent.after_turn(hook)
 
     return agent

@@ -5,8 +5,8 @@ A Python coding agent harness inspired by [pi-mono](https://github.com/badlogic/
 ## Architecture
 
 Feature-based package layout. The `agent/` package owns all agent internals;
-`cli/` owns user interaction; `config/` owns bootstrapping; `shared/` owns
-cross-cutting constants.
+`cli/` owns the local Python REPL; `server/` owns the FastAPI session service;
+`config/` owns bootstrapping; `shared/` owns cross-cutting constants.
 
 ```
 coder/
@@ -41,14 +41,35 @@ coder/
 
 ## Running
 
+### Python CLI
+
 ```bash
 uv run python main.py
 ```
+
+### Python FastAPI service
+
+```bash
+uv run uvicorn coder.server.app:create_app --factory --reload
+```
+
+By default the service listens on `http://127.0.0.1:8000` and stores sessions on disk.
+
+### Bun TUI
+
+```bash
+cd tui
+bun install
+bun run dev
+```
+
+The TUI talks to the FastAPI service over HTTP + WebSocket streaming. Set `CODER_API_URL` if the API is not on the default local address.
 
 ## Testing
 
 ```bash
 uv run pytest
+cd tui && bun test
 ```
 
 ## Key conventions

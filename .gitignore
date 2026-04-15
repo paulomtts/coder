@@ -12,6 +12,10 @@ wheels/
 # Virtual environments
 .venv
 
+# Bun dependencies
+node_modules/
+tui/node_modules/
+
 # Worktrees
 .worktrees/
 .claude/worktrees/
