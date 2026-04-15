@@ -11,13 +11,6 @@ export type ViewportComputation = {
   maxScrollOffset: number;
 };
 
-export type ViewportKey = {
-  pageUp?: boolean;
-  pageDown?: boolean;
-  upArrow?: boolean;
-  downArrow?: boolean;
-};
-
 export type ViewportInput = {
   transcriptLength: number;
   viewportHeight: number;
@@ -98,17 +91,4 @@ export function jumpToLatest(): ViewportState {
     followLatest: true,
     scrollOffset: 0,
   };
-}
-
-export function handleViewportKey(
-  state: ViewportState,
-  key: ViewportKey,
-  transcriptLength: number,
-  viewportHeight: number,
-): ViewportState {
-  if (key.pageUp) return scrollUp(state, transcriptLength, viewportHeight, viewportHeight - 1 || 1);
-  if (key.pageDown) return scrollDown(state, transcriptLength, viewportHeight, viewportHeight - 1 || 1);
-  if (key.upArrow) return scrollUp(state, transcriptLength, viewportHeight, 1);
-  if (key.downArrow) return scrollDown(state, transcriptLength, viewportHeight, 1);
-  return state;
 }

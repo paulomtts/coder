@@ -65,11 +65,9 @@ bun run dev
 
 The TUI talks to the FastAPI service over HTTP + WebSocket streaming. If no server is already running at `CODER_API_URL` (or the default local address), the TUI will start one as a subprocess and shut it down when it exits.
 
-The Bun runtime does not expose raw terminal input the same way Node does, so the TUI uses line-based commands in Bun mode:
-- `/quit` to exit
-- `/cancel` to cancel the active run
-- `/up` / `/down` to scroll the transcript
-- `/home` / `/end` to jump to the top/bottom
+The TUI now uses a live editor-style composer with immediate typing feedback, cursor movement, and submit-on-Enter behavior. Scrollback stays available through the transcript viewport while the assistant is streaming.
+
+The composer keeps the current visual style: a boxed input area with the same cyan/blue accent language used elsewhere in the UI.
 
 The view follows the latest message by default and switches to scrollback mode when you move away from the bottom.
 

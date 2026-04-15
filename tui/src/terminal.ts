@@ -1,4 +1,4 @@
-type InkRenderOptions = {
+export type InkRenderOptions = {
   stdin: NodeJS.ReadStream;
   stdout: NodeJS.WriteStream;
   stderr: NodeJS.WriteStream;

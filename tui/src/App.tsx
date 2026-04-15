@@ -1,9 +1,9 @@
-import { Box, Text, useApp } from "ink";
-import { useEffect, useRef, useState } from "react";
+import { Box, Text, useApp, useInput } from "ink";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { ApiClient } from "./api";
+import { backspace, clearEditor, createEditorState, deleteForward, insertText, moveCursorLeft, moveCursorRight } from "./editor";
 import { startManagedSession } from "./bootstrap";
-import { parseLineAction } from "./input";
 import { applyEvent, createInitialState } from "./reducer";
 import {
   computeViewport,
@@ -12,23 +12,25 @@ import {
   jumpToOldest,
   scrollDown,
   scrollUp,
+  type ViewportState,
 } from "./viewport";
 import {
   formatStatusLabel,
   formatViewportLabel,
+  renderComposerLine,
   visibleTranscript,
 } from "./view";
+
+const TRANSCRIPT_HEIGHT = 14;
 
 export function App() {
   const { exit } = useApp();
   const [state, setState] = useState(createInitialState());
   const [isBooting, setIsBooting] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [viewport, setViewport] = useState(createViewportState());
+  const [viewport, setViewport] = useState<ViewportState>(createViewportState());
+  const [editor, setEditor] = useState(createEditorState());
   const apiRef = useRef<ApiClient | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
-  const transcriptLengthRef = useRef(0);
-  const viewportRef = useRef(viewport);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,104 +81,103 @@ export function App() {
     };
   }, []);
 
-  useEffect(() => {
-    sessionIdRef.current = state.sessionId;
-    transcriptLengthRef.current = state.transcript.length;
-    viewportRef.current = viewport;
-  }, [state.sessionId, state.transcript.length, viewport]);
-
   const transcriptViewport = computeViewport({
     transcriptLength: state.transcript.length,
-    viewportHeight: 14,
+    viewportHeight: TRANSCRIPT_HEIGHT,
     state: viewport,
   });
-  const transcript = visibleTranscript(
-    state.transcript,
-    transcriptViewport.startIndex,
-    transcriptViewport.endIndex,
+
+  const transcript = useMemo(
+    () =>
+      visibleTranscript(
+        state.transcript,
+        transcriptViewport.startIndex,
+        transcriptViewport.endIndex,
+      ),
+    [state.transcript, transcriptViewport.endIndex, transcriptViewport.startIndex],
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const decoder = new TextDecoder();
-    const reader = Bun.stdin.stream().getReader();
-    let buffer = "";
+    if (viewport.followLatest && viewport.scrollOffset === 0) return;
+    if (state.transcript.length === 0) return;
+    setViewport((current) =>
+      current.followLatest ? current : jumpToLatest(),
+    );
+  }, [state.transcript.length, viewport.followLatest, viewport.scrollOffset]);
 
-    (async () => {
-      while (!cancelled) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+  useInput(async (input, key) => {
+    if (key.ctrl && input === "c") {
+      exit();
+      return;
+    }
 
-        let newlineIndex = buffer.indexOf("\n");
-        while (newlineIndex !== -1) {
-          const rawLine = buffer.slice(0, newlineIndex).replace(/\r$/, "");
-          buffer = buffer.slice(newlineIndex + 1);
-          const action = parseLineAction(rawLine);
-          const sessionId = sessionIdRef.current;
-          const transcriptLength = transcriptLengthRef.current;
+    if (key.escape) {
+      setEditor(clearEditor());
+      return;
+    }
 
-          if (action.type === "quit") {
-            exit();
-            return;
-          }
+    if (key.pageUp || key.upArrow) {
+      setViewport((current) => scrollUp(current, state.transcript.length, TRANSCRIPT_HEIGHT));
+      return;
+    }
 
-          if (action.type === "cancel") {
-            if (sessionId) {
-              try {
-                await apiRef.current?.cancelSession(sessionId);
-              } catch (error) {
-                setState((current) =>
-                  applyEvent(current, {
-                    kind: "session.error",
-                    session_id: sessionId,
-                    data: { error: error instanceof Error ? error.message : String(error) },
-                  }),
-                );
-              }
-            }
-            newlineIndex = buffer.indexOf("\n");
-            continue;
-          }
+    if (key.pageDown || key.downArrow) {
+      setViewport((current) => scrollDown(current, state.transcript.length, TRANSCRIPT_HEIGHT));
+      return;
+    }
 
-          if (action.type === "scroll-up") {
-            setViewport((current) => scrollUp(current, transcriptLength, 14));
-          } else if (action.type === "scroll-down") {
-            setViewport((current) => scrollDown(current, transcriptLength, 14));
-          } else if (action.type === "scroll-home") {
-            setViewport(jumpToOldest(transcriptLength, 14));
-          } else if (action.type === "scroll-end") {
-            setViewport(jumpToLatest());
-          } else if (action.type === "message") {
-            const text = action.text.trim();
-            if (text && apiRef.current && sessionId) {
-              setIsSending(true);
-              try {
-                await apiRef.current.sendMessage(sessionId, text);
-              } catch (error) {
-                setState((current) =>
-                  applyEvent(current, {
-                    kind: "session.error",
-                    session_id: sessionId,
-                    data: { error: error instanceof Error ? error.message : String(error) },
-                  }),
-                );
-              } finally {
-                setIsSending(false);
-              }
-            }
-          }
+    if (key.pageUp) {
+      setViewport(jumpToOldest(state.transcript.length, TRANSCRIPT_HEIGHT));
+      return;
+    }
 
-          newlineIndex = buffer.indexOf("\n");
-        }
+    if (key.pageDown) {
+      setViewport(jumpToLatest());
+      return;
+    }
+
+    if (key.return) {
+      const sessionId = state.sessionId;
+      const api = apiRef.current;
+      const message = editor.draft.trim();
+      if (!message || !api || !sessionId) return;
+      setIsSending(true);
+      try {
+        await api.sendMessage(sessionId, message);
+        setEditor(clearEditor());
+      } catch (error) {
+        setState((current) =>
+          applyEvent(current, {
+            kind: "session.error",
+            session_id: sessionId,
+            data: { error: error instanceof Error ? error.message : String(error) },
+          }),
+        );
+      } finally {
+        setIsSending(false);
       }
-    })();
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-      reader.cancel().catch(() => undefined);
-    };
-  }, [exit]);
+    if (key.backspace || key.delete) {
+      setEditor((current) => backspace(current));
+      return;
+    }
+
+    if (key.leftArrow) {
+      setEditor((current) => moveCursorLeft(current));
+      return;
+    }
+
+    if (key.rightArrow) {
+      setEditor((current) => moveCursorRight(current));
+      return;
+    }
+
+    if (input && !key.ctrl && !key.meta) {
+      setEditor((current) => insertText(current, input));
+    }
+  });
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0}>
@@ -209,9 +210,7 @@ export function App() {
               : `Messages ${transcriptViewport.startIndex + 1}-${transcriptViewport.endIndex} of ${state.transcript.length}`}
           </Text>
           {!transcriptViewport.followLatest ? (
-            <Text dimColor>
-              scroll {transcriptViewport.scrollOffset}
-            </Text>
+            <Text dimColor>scroll {transcriptViewport.scrollOffset}</Text>
           ) : null}
         </Box>
         {transcript.length === 0 ? (
@@ -229,7 +228,7 @@ export function App() {
       </Box>
 
       <Box marginTop={1} borderStyle="round" borderColor="blue" paddingX={1}>
-        <Text color="gray">&gt; Type a message and press Enter</Text>
+        <Text color="gray">{renderComposerLine(editor.draft, editor.cursor)}</Text>
       </Box>
 
       <Box marginTop={1} justifyContent="space-between">

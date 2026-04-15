@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test";
 import {
   computeViewport,
   createViewportState,
-  handleViewportKey,
   jumpToLatest,
   jumpToOldest,
   scrollDown,
@@ -52,21 +51,5 @@ describe("viewport", () => {
   test("jump helpers clamp to bounds", () => {
     expect(jumpToOldest(3, 10)).toEqual({ followLatest: false, scrollOffset: 0 });
     expect(jumpToLatest()).toEqual({ followLatest: true, scrollOffset: 0 });
-  });
-
-  test("handleViewportKey supports navigation keys", () => {
-    const afterPageUp = handleViewportKey(createViewportState(), { pageUp: true }, 12, 4);
-    const afterPageDown = handleViewportKey(afterPageUp, { pageDown: true }, 12, 4);
-    const afterUp = handleViewportKey(afterPageDown, { upArrow: true }, 12, 4);
-    const afterDown = handleViewportKey(afterUp, { downArrow: true }, 12, 4);
-
-    expect(afterPageUp.followLatest).toBe(false);
-    expect(afterPageUp.scrollOffset).toBe(3);
-    expect(afterPageDown.followLatest).toBe(true);
-    expect(afterPageDown.scrollOffset).toBe(0);
-    expect(afterUp.followLatest).toBe(false);
-    expect(afterUp.scrollOffset).toBe(1);
-    expect(afterDown.followLatest).toBe(true);
-    expect(afterDown.scrollOffset).toBe(0);
   });
 });
