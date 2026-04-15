@@ -65,6 +65,8 @@ bun run dev
 
 The TUI talks to the FastAPI service over HTTP + WebSocket streaming. If no server is already running at `CODER_API_URL` (or the default local address), the TUI will start one as a subprocess and shut it down when it exits.
 
+Inside the TUI, use `PageUp` / `PageDown` or the arrow keys to scroll the transcript. The view follows the latest message by default and switches to scrollback mode when you move away from the bottom.
+
 ## Testing
 
 ```bash

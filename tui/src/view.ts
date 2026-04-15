@@ -11,6 +11,10 @@ export function formatStatusLabel(
   return parts.join(" · ");
 }
 
+export function formatViewportLabel(followLatest: boolean): string {
+  return followLatest ? "following latest" : "scrollback";
+}
+
 export function renderInputLine(
   draft: string,
   isFocused: boolean,
@@ -21,8 +25,8 @@ export function renderInputLine(
 
 export function visibleTranscript(
   transcript: SessionMessage[],
-  limit: number,
+  startIndex: number,
+  endIndex: number,
 ): SessionMessage[] {
-  if (transcript.length <= limit) return transcript;
-  return transcript.slice(transcript.length - limit);
+  return transcript.slice(startIndex, endIndex);
 }
